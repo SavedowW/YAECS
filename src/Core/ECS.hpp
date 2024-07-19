@@ -6,8 +6,10 @@
 #include <string>
 #include <iostream>
 
+// The system only indexes entities withing archetypes so its rarely used
 using Entity = uint32_t;
 
+// Utility for debugging
 template<typename T>
 void printContainer(std::ostream &os_, const T &con_, int intend_)
 {
@@ -17,6 +19,7 @@ void printContainer(std::ostream &os_, const T &con_, int intend_)
     os_ << std::endl;
 }
 
+// Utility to erase element from vector by moving last element to it
 template<typename T>
 void eraseContainer(std::vector<T> &con_, Entity toErase_)
 {
@@ -25,14 +28,23 @@ void eraseContainer(std::vector<T> &con_, Entity toErase_)
     con_.pop_back();
 }
 
-template<typename... Args>
-struct Archetype
+/*
+    Archetype class
+    Contains vectors of components in a tuple
+    Entities are only ever indexed by indexes within these vectors
+    Optimally, queries are used to iterate between them, as they cost nothing to create
+    and provide compile-time component checks and very fast iteration
+*/
+template<typename... Args> 
+class Archetype
 {
+
     static_assert(sizeof...(Args) > 0, "Archetype should have at least 1 template parameter");
     static_assert(is_unique<Args...>, "All parameters in Archetype should be unique");
 
-    std::tuple<std::vector<Args>...> m_components;
+public:
 
+    // Dump content to std::cout
     void dump(int intend_)
     {
         std::cout << utils::getIntend(intend_) << utils::normalizeType(typeid(*this).name()) << std::endl;
@@ -42,6 +54,7 @@ struct Archetype
         }, m_components);
     }
 
+    // Adds entity to the first free spot
     uint32_t addEntity(Args&&... args_)
     {
         auto pos = 0;
@@ -54,6 +67,7 @@ struct Archetype
         return pos;
     }
 
+    // Removes entity from archetype by moving last entity into its place
     void removeEntity(Entity localEntityId_)
     {
         std::apply([&localEntityId_](auto&&... complst)
@@ -62,12 +76,14 @@ struct Archetype
         }, m_components);
     }
 
+    // Checks if an archetype contains a component
     template<typename T>
     static constexpr bool containsOne()
     {
         return (std::is_same_v<T, Args> || ...);
     }
 
+    // Checks if an archetype contains a number of components (in any order)
     template<typename... T>
     static constexpr bool contains()
     {
@@ -75,6 +91,7 @@ struct Archetype
         return (containsOne<T>() && ...);
     }
 
+    // Checks if an archetype contains a number of components, specified by passed typelist
     template<typename... T>
     static constexpr bool contains(Typelist<T...>)
     {
@@ -82,27 +99,39 @@ struct Archetype
         return contains<T...>();
     }
 
+    // Get component array for iteration, indexing, etc
     template<typename T>
     constexpr inline std::vector<T> &get()
     {
         return std::get<std::vector<T>>(m_components);
     }
+
+private:
+    std::tuple<std::vector<Args>...> m_components;
 };
 
-template<typename CONTAINER_INNER, typename LST>
-concept Contained = CONTAINER_INNER::template contains(LST());
+// Checks that archetype contains components specified by Typelist
+template<typename ATYPE, typename LST>
+concept Contained = ATYPE::template contains(LST());
 
+/*
+    A wrapper for tuple of references to archetypes
+    Query is created by Registry to provide access to specified componenets
+    As its type is deduced at compile time and it only contains references, making and accessing Queries and iterating through them are extremely fast operations
+*/
 template<typename... Args>
 struct Query
 {
     std::tuple<Args...> m_tpl;
 
+    // Concat Queries, used for unfolding
     template<typename... TT>
     constexpr inline auto operator+(const Query<TT...> &rhs_)
     {
         return Query<Args..., TT...>(std::tuple_cat(m_tpl, rhs_.m_tpl));
     }
 
+    // Get Archetype from Query
     template<typename... TT>
     constexpr inline auto &get()
     {
@@ -110,6 +139,7 @@ struct Query
     }
 };
 
+// Utility functions to build query at compile-time out of tuple and a required component list
 template<typename LST, typename CONTAINER_INNER>
 constexpr inline auto getQueryElem(CONTAINER_INNER &t_)
 {
@@ -122,6 +152,7 @@ constexpr inline auto getQueryElem(CONTAINER_INNER &t_)
     return Query(std::tuple<CONTAINER_INNER&>(t_));
 }
 
+// Utility functions to either move a component from archetype or get an empty component, used to convery entities
 template<typename COMPONENT, typename ARCHETYPE>
 constexpr inline auto &&getComponentConstructor(ARCHETYPE &arch_, int src_)
 {
@@ -131,38 +162,47 @@ constexpr inline auto &&getComponentConstructor(ARCHETYPE &arch_, int src_)
 template<typename COMPONENT, typename ARCHETYPE> requires Contained<ARCHETYPE, Typelist<COMPONENT>>
 constexpr inline auto &&getComponentConstructor(ARCHETYPE &arch_, int src_)
 {
-    return std::move(arch_.get<COMPONENT>()[src_]);
+    return std::move(arch_.template get<COMPONENT>()[src_]);
 }
 
+// Utility to easily build archetype list
 template<typename... T>
 struct ArchList {
     template<typename... COMPS_T>
     using add = ArchList<T..., Archetype<COMPS_T...>>;
 };
 
+/*
+    Registry class
+    Contains all archetypes, delegates add, delete operations and manages convertion
+    Also provides Queries by request
+*/
 template<typename ListArches>
-struct Registry;
+class Registry;
 
 template<typename... Args>
-struct Registry<ArchList<Args...>>
+class Registry<ArchList<Args...>>
 {
     static_assert(is_unique<Args...>, "All parameters in Registry should be unique");
     static_assert(sizeof...(Args) > 0, "Registry should have at least 1 template parameter");
 
-    std::tuple<Args...> m_archetypes;
+public:
 
+    // Delegates to respective archetype
     template<typename... COMP_T>
     Entity addEntity(COMP_T&&... components_)
     {
         return std::get<Archetype<COMP_T...>>(m_archetypes).addEntity(std::forward<COMP_T>(components_)...);
     }
 
+    // Delegates to respective archetype
     template<typename... COMP_T>
     void removeEntity(Entity localEntityId_)
     {
         std::get<Archetype<COMP_T...>>(m_archetypes).removeEntity(localEntityId_);
     }
 
+    // Dump content into std::cout
     void dump(int intend_)
     {
         std::cout << utils::getIntend(intend_) + "" << utils::normalizeType(typeid(*this).name()) << std::endl;
@@ -172,6 +212,7 @@ struct Registry<ArchList<Args...>>
         }, m_archetypes);
     }
 
+    // Count archetypes that contain a list of components in any order
     template<typename... T>
     static constexpr size_t count()
     {
@@ -189,14 +230,22 @@ struct Registry<ArchList<Args...>>
         return res;
     }
 
+    /*
+        Request query with all archetypes that contain all specified components
+        If you want something other that conjunction, feel free to call this as much as you want, this operation really fast
+        Might potentially extend to be able to query archetypes as < INCLUDE<COMPONENT1, COMPONENT2>, EXCLUDE<COMPONENT1, COMPONENT2>>
+    */
     template<typename... T>
-    constexpr inline auto getTuples()
+    constexpr inline auto getQuery()
     {
         static_assert(sizeof...(T) > 0, "Registry::getTuples should receive at least 1 template parameter");
         static_assert(is_unique<T...>, "All parameters in Registry::getTuples should be unique");
         return (getQueryElem<Typelist<T...>>(std::get<Args>(m_archetypes)) + ...);
     }
 
+    /*
+        Get archetype with specified components in this specific order
+    */
     template<typename... T>
     constexpr inline Archetype<T...> &get()
     {
@@ -205,12 +254,18 @@ struct Registry<ArchList<Args...>>
         return std::get<Archetype<T...>>(m_archetypes);
     }
 
+    /*
+        Converts entity from specified archetype to another
+    */
     template<typename ATYPE_SRC, typename ATYPE_DST>
     constexpr inline void convert(Entity entity_)
     {
         convert(std::get<ATYPE_SRC>(m_archetypes), std::get<ATYPE_DST>(m_archetypes), entity_);
     }
 
+    /*
+        Converts entity from specified archetype to another, only used internally to split archetype into variadic template
+    */
     template<typename ATYPE_SRC, typename... DST>
     constexpr inline void convert(ATYPE_SRC &src_, Archetype<DST...> &dst_, Entity entity_)
     {
@@ -218,12 +273,7 @@ struct Registry<ArchList<Args...>>
         src_.removeEntity(entity_);
     }
 
-};
+private:
+    std::tuple<Args...> m_archetypes;
 
-template<typename... T>
-struct MakeQuery
-{
-template<typename... COMPS_T>
-    using add = MakeQuery<T..., Archetype<COMPS_T...>&>;
-    using build = Query<T...>;
 };

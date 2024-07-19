@@ -10,15 +10,22 @@
 #include <windows.h>
 #include <Psapi.h>
 
+// Make an archetype list for example
 using MyReg = ArchList<>
     ::add<ComponentTransform, ComponentPhysical, ComponentCharacter>
     ::add<ComponentTransform, ComponentPhysical>
     ::add<ComponentTransform, ComponentCharacter>;
 
+/*
+    Examples of systems
+    Yes, you need to duplicate getQuery to specify field type and actually call it, I don't know what to do about it
+    A system can get as much queries as it wants, there are no limitations
+*/
+
 struct PhysicsSystem
 {
     PhysicsSystem(Registry<MyReg> &reg_) :
-        m_tuples{reg_.getTuples<ComponentTransform, ComponentPhysical>()}
+        m_tuples{reg_.getQuery<ComponentTransform, ComponentPhysical>()}
     {
         
     }
@@ -27,7 +34,7 @@ struct PhysicsSystem
     {
         std::apply([&](auto&&... args) {
             ((
-                updateCon(args.get<ComponentTransform>(), args.get<ComponentPhysical>())
+                updateCon(args.template get<ComponentTransform>(), args.template get<ComponentPhysical>())
                 ), ...);
             }, m_tuples.m_tpl);
     }
@@ -41,7 +48,7 @@ struct PhysicsSystem
         }
     }
 
-    using PhysObjectsQuery = return_type_t< decltype(&Registry<MyReg>::getTuples<ComponentTransform, ComponentPhysical>) >;
+    using PhysObjectsQuery = std::invoke_result_t<decltype(&Registry<MyReg>::getQuery<ComponentTransform, ComponentPhysical>), Registry<MyReg>>;
 
     PhysObjectsQuery m_tuples;
 };
@@ -49,7 +56,7 @@ struct PhysicsSystem
 struct RenderSystem
 {
     RenderSystem(Registry<MyReg> &reg_) :
-        m_tuples{reg_.getTuples<ComponentTransform>()}
+        m_tuples{reg_.getQuery<ComponentTransform>()}
     {
         
     }
@@ -66,13 +73,13 @@ struct RenderSystem
     template<typename T>
     void updateDistrib(T &arch)
     {
-        if constexpr (arch.containsOne<ComponentCharacter>())
+        if constexpr (arch.template containsOne<ComponentCharacter>())
         {
-            updateCon(arch.get<ComponentTransform>(), arch.get<ComponentCharacter>());
+            updateCon(arch.template get<ComponentTransform>(), arch.template get<ComponentCharacter>());
         }
         else
         {
-            updateCon(arch.get<ComponentTransform>());
+            updateCon(arch.template get<ComponentTransform>());
         }
     }
 
@@ -94,7 +101,7 @@ struct RenderSystem
         }
     }
 
-    using TransformObjectQuery = return_type_t< decltype(&Registry<MyReg>::getTuples<ComponentTransform>) >;
+    using TransformObjectQuery = std::invoke_result_t<decltype(&Registry<MyReg>::getQuery<ComponentTransform>), Registry<MyReg>>;
 
     TransformObjectQuery m_tuples;
 };

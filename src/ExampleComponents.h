@@ -1,5 +1,12 @@
 #include "Vector2.h"
 
+/*
+    Examples of components
+    STL containers can sometimes use copy construction / assignment despite move versions being provided
+    Therefore, its better to explicitly delete copy constructor and operator= and specify needed constructors and operations
+*/
+
+
 struct ComponentTransform
 {
     ComponentTransform() = default;
@@ -7,27 +14,12 @@ struct ComponentTransform
     ComponentTransform(const Vector2<float> &pos_, const Vector2<float> &size_) :
         m_pos(pos_), m_size(size_)
     {
-        //std::cout << __FUNCTION__ << " args\n";
     }
 
     ComponentTransform (const ComponentTransform &rhs_) = delete;
-
-    ComponentTransform (ComponentTransform &&rhs_) :
-        m_pos(rhs_.m_pos),
-        m_size(rhs_.m_size)
-    {
-        //std::cout << __FUNCTION__ << " move\n";
-    }
-
+    ComponentTransform (ComponentTransform &&rhs_) = default;
     ComponentTransform &operator=(const ComponentTransform &rhs_) = delete;
-
-    ComponentTransform &operator=(ComponentTransform &&rhs_)
-    {
-        m_pos = rhs_.m_pos;
-        m_size = rhs_.m_size;
-        //std::cout << __FUNCTION__ << " move\n";
-        return *this;
-    }
+    ComponentTransform &operator=(ComponentTransform &&rhs_) = default;
 
     Vector2<float> m_pos;
     Vector2<float> m_size;
@@ -40,27 +32,12 @@ struct ComponentPhysical
     ComponentPhysical(const Collider &cld_, float gravity_) :
         m_cld(cld_), m_gravity(gravity_)
     {
-        //std::cout << "ComponentPhysical CONSTRUCT ARGUMENTS\n";
     }
 
     ComponentPhysical (const ComponentPhysical &rhs_) = delete;
-
-    ComponentPhysical (ComponentPhysical &&rhs_) :
-        m_cld(rhs_.m_cld),
-        m_gravity(rhs_.m_gravity)
-    {
-        //std::cout << "ComponentPhysical CONSTRUCT MOVE\n";
-    }
-
+    ComponentPhysical (ComponentPhysical &&rhs_) = default;
     ComponentPhysical &operator=(const ComponentPhysical &rhs_) = delete;
-
-    ComponentPhysical &operator=(ComponentPhysical &&rhs_)
-    {
-        m_cld = rhs_.m_cld;
-        m_gravity = rhs_.m_gravity;
-        //std::cout << "ComponentPhysical ASSIGN MOVE\n";
-        return *this;
-    }
+    ComponentPhysical &operator=(ComponentPhysical &&rhs_) = default;
 
     Collider m_cld;
     float m_gravity;
@@ -74,27 +51,12 @@ struct ComponentCharacter
     ComponentCharacter(const std::string &name_, int level_) :
         m_name(name_), m_level(level_)
     {
-        //std::cout << "ComponentCharacter CONSTRUCT ARGUMENTS\n";
     }
 
     ComponentCharacter (const ComponentCharacter &rhs_) = delete;
-
-    ComponentCharacter (ComponentCharacter &&rhs_) :
-        m_name(rhs_.m_name),
-        m_level(rhs_.m_level)
-    {
-        //std::cout << "ComponentCharacter CONSTRUCT MOVE\n";
-    }
-
+    ComponentCharacter (ComponentCharacter &&rhs_) = default;
     ComponentCharacter &operator=(const ComponentCharacter &rhs_) = delete;
-
-    ComponentCharacter &operator=(ComponentCharacter &&rhs_)
-    {
-        m_name = rhs_.m_name;
-        m_level = rhs_.m_level;
-        //std::cout << "ComponentCharacter ASSIGN MOVE\n";
-        return *this;
-    }
+    ComponentCharacter &operator=(ComponentCharacter &&rhs_) = default;
 
     std::string m_name;
     int m_level;
