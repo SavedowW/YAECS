@@ -99,6 +99,7 @@ struct RenderSystem
     TransformObjectQuery m_tuples;
 };
 
+
 int main(int argc, char* args[])
 {
     Registry<MyReg> reg;
@@ -109,10 +110,10 @@ int main(int argc, char* args[])
 
     std::cout << reg.addEntity(ComponentTransform{{4.1f, 4.2f}, {4.1f, 4.2f}}, ComponentPhysical{{4.1f, 4.2f, 4.3f, 4.4f}, 12.0f}) << std::endl;
 
-    std::cout << reg.addEntity(ComponentTransform{{-100.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{3.1f, 3.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless2", 7}) << std::endl;
-    std::cout << reg.addEntity(ComponentTransform{{-100.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{4.1f, 4.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless3", 1}) << std::endl;
-    std::cout << reg.addEntity(ComponentTransform{{-100.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{4.1f, 4.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless4", 1}) << std::endl;
-    std::cout << reg.addEntity(ComponentTransform{{-100.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{4.1f, 4.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless5", 1}) << std::endl;
+    std::cout << reg.addEntity(ComponentTransform{{-101.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{3.1f, 3.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless1", 1}) << std::endl;
+    std::cout << reg.addEntity(ComponentTransform{{-102.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{4.1f, 4.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless2", 2}) << std::endl;
+    std::cout << reg.addEntity(ComponentTransform{{-103.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{4.1f, 4.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless3", 3}) << std::endl;
+    std::cout << reg.addEntity(ComponentTransform{{-104.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{4.1f, 4.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless4", 4}) << std::endl;
     reg.dump(0);
 
     PhysicsSystem phys(reg);
@@ -121,10 +122,13 @@ int main(int argc, char* args[])
     int cmd = 1;
     while (cmd)
     {
+        if (cmd > 5)
+            reg.convert<Archetype<ComponentTransform, ComponentPhysical, ComponentCharacter>, Archetype<ComponentTransform, ComponentCharacter>>(0);
         phys.update();
         ren.update();
         std::cin >> cmd;
     }
 
-    
+
+    reg.dump(0);
 }

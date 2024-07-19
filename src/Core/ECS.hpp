@@ -87,8 +87,6 @@ struct Archetype
     {
         return std::get<std::vector<T>>(m_components);
     }
-
-    
 };
 
 template<typename CONTAINER_INNER, typename LST>
@@ -124,6 +122,17 @@ constexpr inline auto getQueryElem(CONTAINER_INNER &t_)
     return Query(std::tuple<CONTAINER_INNER&>(t_));
 }
 
+template<typename COMPONENT, typename ARCHETYPE>
+constexpr inline auto &&getComponentConstructor(ARCHETYPE &arch_, int src_)
+{
+    return COMPONENT();
+}
+
+template<typename COMPONENT, typename ARCHETYPE> requires Contained<ARCHETYPE, Typelist<COMPONENT>>
+constexpr inline auto &&getComponentConstructor(ARCHETYPE &arch_, int src_)
+{
+    return std::move(arch_.get<COMPONENT>()[src_]);
+}
 
 template<typename... T>
 struct ArchList {
@@ -195,6 +204,20 @@ struct Registry<ArchList<Args...>>
         static_assert(is_unique<T...>, "All parameters in Registry::get should be unique");
         return std::get<Archetype<T...>>(m_archetypes);
     }
+
+    template<typename ATYPE_SRC, typename ATYPE_DST>
+    constexpr inline void convert(Entity entity_)
+    {
+        convert(std::get<ATYPE_SRC>(m_archetypes), std::get<ATYPE_DST>(m_archetypes), entity_);
+    }
+
+    template<typename ATYPE_SRC, typename... DST>
+    constexpr inline void convert(ATYPE_SRC &src_, Archetype<DST...> &dst_, Entity entity_)
+    {
+        dst_.addEntity(std::move<DST>(getComponentConstructor<DST>(src_, entity_))...);
+        src_.removeEntity(entity_);
+    }
+
 };
 
 template<typename... T>

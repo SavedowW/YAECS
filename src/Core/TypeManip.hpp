@@ -36,7 +36,6 @@ struct TypeHash
 
 int TypeHash::LastHash = 0;
 
-
 template<typename T>
 constexpr inline void printTypesRecursive(std::ostream &os_)
 {
@@ -48,13 +47,17 @@ constexpr inline void printTypesRecursive(std::ostream &os_)
 {
     printTypesRecursive<T>(os_);
     printTypesRecursive<Rest...>(os_);
-
 }
 
 template <typename... Args>
 inline void Typelist<Args...>::dump(std::ostream &os_)
 {
     printTypesRecursive<Args...>(os_);
+}
+
+inline void Typelist<>::dump(std::ostream &os_)
+{
+    os_ << "(EMPTY)\n";
 }
 
 

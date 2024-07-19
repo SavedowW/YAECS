@@ -4,6 +4,12 @@
 #include <algorithm>
 #include <iostream>
 
+/*
+ Not actually related to ECS, but still better than just inheritance
+ Let's statically compose objects from components and usem as both implementation and interface
+ Probably would be better to make it dynamic
+*/
+
 namespace Components
 {
 
