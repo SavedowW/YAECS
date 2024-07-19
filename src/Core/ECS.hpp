@@ -87,6 +87,8 @@ struct Archetype
     {
         return std::get<std::vector<T>>(m_components);
     }
+
+    
 };
 
 template<typename CONTAINER_INNER, typename LST>
@@ -193,4 +195,12 @@ struct Registry<ArchList<Args...>>
         static_assert(is_unique<T...>, "All parameters in Registry::get should be unique");
         return std::get<Archetype<T...>>(m_archetypes);
     }
+};
+
+template<typename... T>
+struct MakeQuery
+{
+template<typename... COMPS_T>
+    using add = MakeQuery<T..., Archetype<COMPS_T...>&>;
+    using build = Query<T...>;
 };

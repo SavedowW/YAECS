@@ -64,6 +64,7 @@ struct ComponentPhysical
 
     Collider m_cld;
     float m_gravity;
+    Vector2<float> m_velocity;
 };
 
 struct ComponentCharacter
@@ -108,7 +109,7 @@ std::ostream &operator<<(std::ostream &os_, const ComponentTransform &comp_)
 
 std::ostream &operator<<(std::ostream &os_, const ComponentPhysical &comp_)
 {
-    os_ << "Physical ( collider: " << comp_.m_cld << ", gravity: {" << comp_.m_gravity << "} )";
+    os_ << "Physical ( collider: " << comp_.m_cld << ", gravity: {" << comp_.m_gravity << "}, velocity: " << comp_.m_velocity << " )";
     return os_;
 }
 
