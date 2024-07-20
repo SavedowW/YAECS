@@ -1,5 +1,5 @@
 #include "ExampleComponents.h"
-#include "ECS.hpp"
+#include "yaECS.hpp"
 #include <iostream>
 #include <string>
 #include "Utils.h"
@@ -11,7 +11,7 @@
 #include <Psapi.h>
 
 // Make an archetype list for example
-using MyReg = ArchList<>
+using MyReg = ECS::ArchList<>
     ::add<ComponentTransform, ComponentPhysical, ComponentCharacter>
     ::add<ComponentTransform, ComponentPhysical>
     ::add<ComponentTransform, ComponentCharacter>;
@@ -24,7 +24,7 @@ using MyReg = ArchList<>
 
 struct PhysicsSystem
 {
-    PhysicsSystem(Registry<MyReg> &reg_) :
+    PhysicsSystem(ECS::Registry<MyReg> &reg_) :
         m_tuples{reg_.getQuery<ComponentTransform, ComponentPhysical>()}
     {
         
@@ -48,14 +48,14 @@ struct PhysicsSystem
         }
     }
 
-    using PhysObjectsQuery = std::invoke_result_t<decltype(&Registry<MyReg>::getQuery<ComponentTransform, ComponentPhysical>), Registry<MyReg>>;
+    using PhysObjectsQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQuery<ComponentTransform, ComponentPhysical>), ECS::Registry<MyReg>>;
 
     PhysObjectsQuery m_tuples;
 };
 
 struct RenderSystem
 {
-    RenderSystem(Registry<MyReg> &reg_) :
+    RenderSystem(ECS::Registry<MyReg> &reg_) :
         m_tuples{reg_.getQuery<ComponentTransform>()}
     {
         
@@ -73,7 +73,7 @@ struct RenderSystem
     template<typename T>
     void updateDistrib(T &arch)
     {
-        if constexpr (arch.template containsOne<ComponentCharacter>())
+        if constexpr (T::template containsOne<ComponentCharacter>())
         {
             updateCon(arch.template get<ComponentTransform>(), arch.template get<ComponentCharacter>());
         }
@@ -101,7 +101,7 @@ struct RenderSystem
         }
     }
 
-    using TransformObjectQuery = std::invoke_result_t<decltype(&Registry<MyReg>::getQuery<ComponentTransform>), Registry<MyReg>>;
+    using TransformObjectQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQuery<ComponentTransform>), ECS::Registry<MyReg>>;
 
     TransformObjectQuery m_tuples;
 };
@@ -109,7 +109,7 @@ struct RenderSystem
 
 int main(int argc, char* args[])
 {
-    Registry<MyReg> reg;
+    ECS::Registry<MyReg> reg;
     std::cout << reg.addEntity(ComponentTransform{{2.3f, -99.5f}, {1.0f, 2.0f}}, ComponentPhysical{{2.3f, 39.9f, 10.0f, 15.0f}, 9.8f}) << std::endl;
     std::cout << reg.addEntity(ComponentTransform{{1.1f, 1.2f}, {1.1f, 1.2f}}, ComponentPhysical{{1.1f, 1.2f, 1.3f, 1.4f}, 9.9f}) << std::endl;
     std::cout << reg.addEntity(ComponentTransform{{2.1f, 2.2f}, {2.1f, 2.2f}}, ComponentPhysical{{2.1f, 2.2f, 2.3f, 2.4f}, 10.0f}) << std::endl;
@@ -130,7 +130,7 @@ int main(int argc, char* args[])
     while (cmd)
     {
         if (cmd > 5)
-            reg.convert<Archetype<ComponentTransform, ComponentPhysical, ComponentCharacter>, Archetype<ComponentTransform, ComponentCharacter>>(0);
+            reg.convert<ECS::Archetype<ComponentTransform, ComponentPhysical, ComponentCharacter>, ECS::Archetype<ComponentTransform, ComponentCharacter>>(0);
         phys.update();
         ren.update();
         std::cin >> cmd;
