@@ -3,12 +3,9 @@
 #include <iostream>
 #include <string>
 #include "Utils.h"
-#include "Collider.h"
 #include "CoreComponents.h"
 #include <array>
 #include <vector>
-#include <windows.h>
-#include <Psapi.h>
 
 // Make an archetype list for example
 using MyReg = ECS::ArchList<>

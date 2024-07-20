@@ -3,7 +3,6 @@ cmake_minimum_required (VERSION 3.20)
 project(Core)
 
 set(CORE_SRC_FILES
-Collider.cpp
 CoreComponents.cpp
 )
 
