@@ -114,6 +114,16 @@ namespace ECS
         std::tuple<std::vector<Args>...> m_components;
     };
 
+    template <typename... Ts, typename... Us>
+    auto filter(Archetype<Us...>& c)
+    {
+        if constexpr (Archetype<Us...>::template contains<Ts...>()) {
+            return std::tie(c);
+        } else {
+            return std::tuple<>{};
+        }
+    }
+
     // Checks that archetype contains components specified by Typelist
     template<typename ATYPE, typename LST>
     concept Contained = ATYPE::template contains(LST());
@@ -142,19 +152,6 @@ namespace ECS
             return std::get<Archetype<TT...>&>(m_tpl);
         }
     };
-
-    // Utility functions to build query at compile-time out of tuple and a required component list
-    template<typename LST, typename CONTAINER_INNER>
-    constexpr inline auto getQueryElem(CONTAINER_INNER &t_)
-    {
-        return Query<>();
-    }
-
-    template<typename LST, typename CONTAINER_INNER> requires Contained<CONTAINER_INNER, LST>
-    constexpr inline auto getQueryElem(CONTAINER_INNER &t_)
-    {
-        return Query{std::tuple<CONTAINER_INNER&>(t_)};
-    }
 
     // Utility functions to either move a component from archetype or get an empty component, used to convery entities
     template<typename COMPONENT, typename ARCHETYPE>
@@ -244,7 +241,7 @@ namespace ECS
         {
             static_assert(sizeof...(T) > 0, "Registry::getTuples should receive at least 1 template parameter");
             static_assert(is_unique<T...>, "All parameters in Registry::getTuples should be unique");
-            return (getQueryElem<TypeManip::Typelist<T...>>(std::get<Args>(m_archetypes)) + ...);
+            return Query(std::tuple_cat(filter<T...>(std::get<Args>(m_archetypes))...));
         }
 
         /*
