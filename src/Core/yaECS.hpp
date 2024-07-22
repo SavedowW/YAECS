@@ -13,6 +13,9 @@ namespace ECS
     // The system only indexes entities withing archetypes so its rarely used
     using Entity = uint32_t;
 
+    template<typename... Components_t>
+    using EntityRef = std::tuple<Components_t&...>;
+
     // Utility for debugging
     template<typename T>
     constexpr inline void printContainer(std::ostream &os_, const T &con_, int intend_)
@@ -108,6 +111,22 @@ namespace ECS
         constexpr inline std::vector<T> &get()
         {
             return std::get<std::vector<T>>(m_components);
+        }
+
+        inline EntityRef<Args...> getEntity(Entity ent_)
+        {
+            return std::tuple<Args&...>((std::get<std::vector<Args>>(m_components)[ent_]) ...);
+        }
+
+        template<typename... Comps> requires TypeManip::TemplateExists<Comps...>
+        inline EntityRef<Comps...> getEntity(Entity ent_)
+        {
+            return std::tuple<Comps&...>((std::get<std::vector<Comps>>(m_components)[ent_]) ...);
+        }
+
+        inline size_t size() const
+        {
+            return std::get<0>(m_components).size();
         }
 
     private:
@@ -279,6 +298,14 @@ namespace ECS
 
     };
 
+}
+
+template<typename... Components_t>
+std::ostream &operator<<(std::ostream &os_, const std::tuple<Components_t...> &rhs_)
+{
+    auto sz = sizeof...(Components_t);
+    ((os_ << std::get<Components_t>(rhs_) << (--sz > 0 ? ", " : "")), ...);
+    return os_;
 }
 
 #endif

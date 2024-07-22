@@ -6,7 +6,6 @@
 
 namespace TypeManip
 {
-
     // Checks that variadic template is not empty
     template<typename... TT>
     concept TemplateExists = sizeof...(TT) > 0;
@@ -23,6 +22,8 @@ namespace TypeManip
         }
 
         static inline void dump(std::ostream &os_);
+
+        using ToEntityRef = std::tuple<Args&...>;
     };
 
     /*
@@ -74,6 +75,95 @@ namespace TypeManip
     inline void Typelist<>::dump(std::ostream &os_)
     {
         os_ << "(EMPTY)\n";
+    }
+
+    template<typename T, int ID>
+    struct MapField
+    {
+        using Type = T;
+        static constexpr inline int Value = ID;
+    };
+    
+    template<typename T, typename Current, typename... Rest>
+    constexpr int GetRecursive()
+    {
+        if constexpr (std::is_same_v<T, typename Current::Type>)
+        {
+            return Current::Value;
+        }
+        else
+        {
+            static_assert(sizeof...(Rest) > 0, "Type was not found");
+            return GetRecursive<T, Rest...>();
+        }
+    }
+    
+    template<int Next = 0, typename... Ts>
+    struct TypeRegistry
+    {
+        using Create = TypeRegistry<0>;
+    
+        template<typename T>
+        using Add = TypeRegistry<Next + 1, Ts..., MapField<T, Next>>;
+    
+        template<typename T>
+        constexpr static int Get()
+        {
+            return GetRecursive<T, Ts...>();
+        }
+    };
+    
+    template<typename TypeRegistry, typename T>
+    constexpr bool isSorted()
+    {
+        return true;
+    }
+    
+    template<typename TypeRegistry, typename T1, typename T2, typename ...Rest>
+    constexpr bool isSorted()
+    {
+        if constexpr(TypeRegistry::template Get<T1>() <= TypeRegistry::template  Get<T2>())
+        {
+            return isSorted<T2, Rest...>();
+        }
+        else
+        {
+            return false;
+        }
+    }
+    
+    template<typename TypeRegistry, typename... Ts>
+    constexpr bool isSorted(TypeManip::Typelist<Ts...>)
+    {
+        return isSorted<TypeRegistry, Ts...>();
+    }
+    
+    template<typename TypeRegistry, typename T>
+    constexpr auto pushForward(TypeManip::Typelist<T>)
+    {
+        return TypeManip::Typelist<T>();
+    }
+    
+    template<typename TypeRegistry, typename T1, typename T2, typename... Rest>
+    constexpr auto pushForward(TypeManip::Typelist<T1, T2, Rest...>)
+    {
+        if constexpr (TypeRegistry::template Get<T1>() <= TypeRegistry::template  Get<T2>())
+            return TypeManip::Typelist<T1, T2, Rest...>();
+        else
+            return TypeManip::Typelist<T2>() + pushForward<TypeRegistry>(TypeManip::Typelist<T1, Rest...>());
+    }
+    
+    template<typename TypeRegistry, typename T>
+    constexpr auto sort(TypeManip::Typelist<T>)
+    {
+        return TypeManip::Typelist<T>();
+    }
+    
+    template<typename TypeRegistry, typename T1, typename T2, typename... Rest>
+    constexpr auto sort(TypeManip::Typelist<T1, T2, Rest...>)
+    {
+    
+        return pushForward<TypeRegistry>(TypeManip::Typelist<T1>() + sort<TypeRegistry>(TypeManip::Typelist<T2, Rest...>()));
     }
 
 }

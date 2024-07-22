@@ -23,6 +23,8 @@ struct ComponentTransform
 
     Vector2<float> m_pos;
     Vector2<float> m_size;
+
+    ORIENTATION m_orientation;
 };
 
 struct ComponentPhysical
@@ -62,6 +64,18 @@ struct ComponentCharacter
     int m_level;
 };
 
+struct ComponentPlayerInput
+{
+    ComponentPlayerInput() = default;
+    ComponentPlayerInput (const ComponentPlayerInput &rhs_) = delete;
+    ComponentPlayerInput (ComponentPlayerInput &&rhs_) = default;
+    ComponentPlayerInput &operator=(const ComponentPlayerInput &rhs_) = delete;
+    ComponentPlayerInput &operator=(ComponentPlayerInput &&rhs_) = default;
+
+    bool m_inL = false;
+    bool m_inR = false;
+};
+
 
 std::ostream &operator<<(std::ostream &os_, const ComponentTransform &comp_)
 {
@@ -71,12 +85,18 @@ std::ostream &operator<<(std::ostream &os_, const ComponentTransform &comp_)
 
 std::ostream &operator<<(std::ostream &os_, const ComponentPhysical &comp_)
 {
-    os_ << "Physical ( collider: " << comp_.m_cld << ", gravity: {" << comp_.m_gravity << "}, velocity: " << comp_.m_velocity << " )";
+    os_ << "Physical ( collider: " << comp_.m_cld << ", gravity: {" << comp_.m_gravity << "}, velocity: {" << comp_.m_velocity << "} )";
     return os_;
 }
 
 std::ostream &operator<<(std::ostream &os_, const ComponentCharacter &comp_)
 {
     os_ << "Character ( name: " << comp_.m_name << ", level: {" << comp_.m_level << "} )";
+    return os_;
+}
+
+std::ostream &operator<<(std::ostream &os_, const ComponentPlayerInput &comp_)
+{
+    os_ << std::boolalpha << "Inputs ( Left: " << comp_.m_inL << ", Right: " << comp_.m_inR << " )";
     return os_;
 }
