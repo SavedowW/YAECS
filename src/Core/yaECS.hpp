@@ -268,11 +268,11 @@ namespace ECS
             Might potentially extend to be able to query archetypes as < INCLUDE<COMPONENT1, COMPONENT2>, EXCLUDE<COMPONENT1, COMPONENT2>>
         */
         template<typename... T>
-        constexpr inline auto getQuery()
+        constexpr inline auto getQuery()   
         {
             static_assert(sizeof...(T) > 0, "Registry::getTuples should receive at least 1 template parameter");
             static_assert(is_unique<T...>, "All parameters in Registry::getTuples should be unique");
-            return Query(std::tuple_cat(filter<T...>(std::get<Args>(m_archetypes))...));
+            return Query{std::tuple_cat(filter<T...>(std::get<Args>(m_archetypes))...)};
         }
 
         /*
@@ -285,7 +285,7 @@ namespace ECS
         {
             static_assert(sizeof...(T) > 0, "Registry::getTuples should receive at least 1 template parameter");
             static_assert(is_unique<T...>, "All parameters in Registry::getTuples should be unique");
-            return Query(std::tuple_cat(filter<T...>(std::get<Args>(m_archetypes))...));
+            return Query{std::tuple_cat(filter<T...>(std::get<Args>(m_archetypes))...)};
         }
 
 
