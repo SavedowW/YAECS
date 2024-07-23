@@ -8,11 +8,28 @@
 #include <vector>
 #include "StateMachine.hpp"
 
-using PlayerRef = ECS::EntityRef<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput>;
+enum class PlayerStates {
+    IDLE,
+    RUN,
+    NONE
+};
+
+enum class MobStates {
+    META_ROAM,
+    META_CHASE,
+    IDLE,
+    WALK,
+    RUN,
+    NONE
+};
+
+using ArchPlayer = ECS::EntityData<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput>;
+using ArchMob = ECS::EntityData<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentMobNavigation>;
 
 // Make an archetype list for example
 using MyReg = ECS::ArchList<>
-    ::add<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput, StateMachine<PlayerRef>>;
+    ::addTypelist<ArchPlayer::WithSM<PlayerStates>>
+    ::addTypelist<ArchMob::WithSM<MobStates>>;
 
 /*
     Examples of systems
@@ -124,7 +141,6 @@ struct RenderSystem
             updateCon(arch.template get<ComponentTransform>());
         }
         */
-        std::cout << typeid(T).name() << std::endl;
         for (int i = 0 ; i < arch.size(); ++i)
         {
             std::cout << arch.getEntity(i) << std::endl;
@@ -136,35 +152,42 @@ struct RenderSystem
     TransformObjectQuery m_tuples;
 };
 
-class StateRun : public GenericState<PlayerRef>
+class StateRun : public GenericState<ArchPlayer::MakeRef, PlayerStates>
 {
 public:
-    StateRun() :
-        GenericState<PlayerRef>(TypeManip::TypeHash::getHash<decltype(*this)>(), "Run")
+    StateRun(float horSpeed_) :
+        GenericState<ArchPlayer::MakeRef, PlayerStates>(PlayerStates::RUN, "Run", {PlayerStates::NONE, {PlayerStates::IDLE, PlayerStates::RUN}}),
+        m_horSpeed(horSpeed_)
     {
 
     }
 
-    inline virtual bool update(PlayerRef &owner_, uint32_t currentFrame_) override
+    inline virtual void enter(ArchPlayer::MakeRef &owner_, PlayerStates from_)
     {
-        GenericState<PlayerRef>::update(owner_, currentFrame_);
+        GenericState<ArchPlayer::MakeRef, PlayerStates>::enter(owner_, from_);
 
         auto &trans = std::get<ComponentTransform&>(owner_);
         auto &phys = std::get<ComponentPhysical&>(owner_);
+
+        if (trans.m_orientation == ORIENTATION::LEFT)
+        {
+            phys.m_velocity.x = -m_horSpeed;
+        }
+        else if (trans.m_orientation == ORIENTATION::RIGHT)
+        {
+            phys.m_velocity.x = m_horSpeed;
+        }
+    }
+
+    inline virtual bool update(ArchPlayer::MakeRef &owner_, uint32_t currentFrame_) override
+    {
+        GenericState<ArchPlayer::MakeRef, PlayerStates>::update(owner_, currentFrame_);
+
+        auto &trans = std::get<ComponentTransform&>(owner_);
         auto &inp = std::get<ComponentPlayerInput&>(owner_);
 
-        if (inp.m_inL)
-        {
-            phys.m_velocity.x = -5.0f;
-            trans.m_orientation = ORIENTATION::LEFT;
+        if (inp.m_inL && trans.m_orientation == ORIENTATION::LEFT || inp.m_inR && trans.m_orientation == ORIENTATION::RIGHT)
             return false;
-        }
-        else if (inp.m_inR)
-        {
-            phys.m_velocity.x = 5.0f;
-            trans.m_orientation = ORIENTATION::RIGHT;
-            return false;
-        }
         else
         {
             std::cout << "Can leave\n";
@@ -172,7 +195,7 @@ public:
         }
     }
 
-    inline virtual ORIENTATION isPossible(PlayerRef &owner_) const override
+    inline virtual ORIENTATION isPossible(ArchPlayer::MakeRef &owner_) const override
     {
         auto &inp = std::get<ComponentPlayerInput&>(owner_);
         if (inp.m_inL)
@@ -182,24 +205,164 @@ public:
 
         return ORIENTATION::UNSPECIFIED;
     }
+
+protected:
+    int m_horSpeed;
 };
 
-class StateIdle : public GenericState<PlayerRef>
+template<typename Owner_t, typename PLAYER_STATE_T>
+class StateIdle : public GenericState<Owner_t, PLAYER_STATE_T>
 {
 public:
-    StateIdle() :
-        GenericState<PlayerRef>(TypeManip::TypeHash::getHash<decltype(*this)>(), "Idle")
+    StateIdle(PLAYER_STATE_T state_, StateMarker<PLAYER_STATE_T> &&transitionableFrom_) :
+        GenericState<Owner_t, PLAYER_STATE_T>(state_, "Idle", std::move(transitionableFrom_))
     {
+    }
+
+    inline virtual void enter(Owner_t &owner_, PLAYER_STATE_T from_)
+    {
+        auto &phys = std::get<ComponentPhysical&>(owner_);
+        phys.m_velocity.x = 0;
     }
 
 };
 
 
+class StateMobNavigation : public GenericState<ArchMob::MakeRef, MobStates>
+{
+public:
+    StateMobNavigation(MobStates state_, float horSpeed_, StateMarker<MobStates> &&transitionableFrom_) :
+        GenericState<ArchMob::MakeRef, MobStates>(state_, "Move dir", std::move(transitionableFrom_)),
+        m_horSpeed(horSpeed_)
+    {
+
+    }
+
+    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_)
+    {
+        GenericState<ArchMob::MakeRef, MobStates>::enter(owner_, from_);
+
+        auto &trans = std::get<ComponentTransform&>(owner_);
+        auto &phys = std::get<ComponentPhysical&>(owner_);
+        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
+
+        if (mobdata.dir > 0)
+        {
+            trans.m_orientation = ORIENTATION::LEFT;
+            phys.m_velocity.x = -m_horSpeed;
+        }
+        else
+        {
+            trans.m_orientation = ORIENTATION::RIGHT;
+            phys.m_velocity.x = m_horSpeed;
+        }
+    }
+
+    inline virtual bool update(ArchMob::MakeRef &owner_, uint32_t currentFrame_) override
+    {
+        GenericState<ArchMob::MakeRef, MobStates>::update(owner_, currentFrame_);
+
+        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
+        return (mobdata.framesLeft-- <= 0);
+    }
+
+    inline virtual ORIENTATION isPossible(ArchMob::MakeRef &owner_) const override
+    {
+        auto &trans = std::get<ComponentTransform&>(owner_);
+        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
+        if (mobdata.framesLeft > 0 && mobdata.dir != 0)
+            return (mobdata.dir > 0 ? ORIENTATION::RIGHT : ORIENTATION::LEFT);
+        else
+            return ORIENTATION::UNSPECIFIED;
+    }
+
+protected:
+    int m_horSpeed;
+};
+
+class StateMobMetaRoam : public NodeState<ArchMob::MakeRef, MobStates>
+{
+public:
+    StateMobMetaRoam() :
+        NodeState<ArchMob::MakeRef, MobStates>(MobStates::META_ROAM, "ROAM", {MobStates::NONE, {MobStates::META_CHASE}})
+    {
+    }
+
+    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_)
+    {
+        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
+        mobdata.framesLeft = 10;
+        mobdata.dir = (rand() % 2) * 2 - 1;
+        switchCurrentState(owner_, MobStates::WALK);
+    }
+
+    virtual bool update(ArchMob::MakeRef &owner_, uint32_t currentFrame_) override
+    {
+        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
+
+        auto res = NodeState<ArchMob::MakeRef, MobStates>::update(owner_, currentFrame_);
+        if (res)
+        {
+            if (m_currentState->m_stateId == MobStates::IDLE)
+            {
+                mobdata.framesLeft = 5;
+                mobdata.dir = 0;
+            }
+        }
+        else if (m_currentState->m_stateId == MobStates::IDLE)
+        {
+            if (mobdata.framesLeft == 0)
+            {
+                mobdata.framesLeft = 10;
+                mobdata.dir = (rand() % 2) * 2 - 1;
+                switchCurrentState(owner_, MobStates::WALK);
+            }
+            else
+            {
+                mobdata.framesLeft--;
+                std::cout << "Reduced to " << mobdata.framesLeft << std::endl;
+            }
+        }
+
+        if (currentFrame_ >= 10)
+            return true;
+        
+        return false;
+        
+    }
+
+};
+
+class StateMobMetaChase : public NodeState<ArchMob::MakeRef, MobStates>
+{
+public:
+    StateMobMetaChase() :
+        NodeState<ArchMob::MakeRef, MobStates>(MobStates::META_CHASE, "CHASE", {MobStates::NONE, {MobStates::META_ROAM}})
+    {
+    }
+
+    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_)
+    {
+        switchCurrentState(owner_, MobStates::RUN);
+    }
+
+    virtual bool update(ArchMob::MakeRef &owner_, uint32_t currentFrame_) override
+    {
+        auto res = NodeState<ArchMob::MakeRef, MobStates>::update(owner_, currentFrame_);
+
+        if (currentFrame_ >= 15)
+            return true;
+        
+        return false;
+    }
+
+};
+
 struct PlayerStateSystem
 {
 public:
     PlayerStateSystem(ECS::Registry<MyReg> &reg_) :
-        m_query{reg_.getQuery<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput, StateMachine<PlayerRef>>()}
+        m_query{reg_.getQueryTl(ArchPlayer::WithSM<PlayerStates>())}
     {
     }
 
@@ -231,16 +394,16 @@ public:
     template<typename T2>
     void initInstance(T2 inst_)
     {
-        auto &smc = std::get<StateMachine<PlayerRef>&>(inst_);
-        smc.addState(std::unique_ptr<StateRun>(new StateRun()));
-        smc.addState(std::unique_ptr<StateIdle>(new StateIdle()));
-        smc.setInitialState(TypeManip::TypeHash::getHash<StateIdle>());
+        auto &smc = std::get<StateMachine<ArchPlayer::MakeRef, PlayerStates>&>(inst_);
+        smc.addState(std::unique_ptr<StateRun>(new StateRun(5.0f)));
+        smc.addState(std::unique_ptr<StateIdle<ArchPlayer::MakeRef, PlayerStates>>(new StateIdle<ArchPlayer::MakeRef, PlayerStates>(PlayerStates::IDLE, {PlayerStates::NONE, {PlayerStates::RUN}})));
+        smc.setInitialState(PlayerStates::IDLE);
     }
 
     template<typename T>
     void updateArch(T &arch_)
     {
-        auto &smcs = arch_.template get<StateMachine<PlayerRef>>();
+        auto &smcs = arch_.template get<StateMachine<ArchPlayer::MakeRef, PlayerStates>>();
         for (int i = 0; i < arch_.size(); ++i)
         {
             auto inst = arch_.template getEntity<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput>(i);
@@ -250,21 +413,98 @@ public:
     }
 
 private:
-    using PlayersQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQuery<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput, StateMachine<PlayerRef>>), ECS::Registry<MyReg>>;
+    using PlayersQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQueryTl<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput, StateMachine<ArchPlayer::MakeRef, PlayerStates>>), ECS::Registry<MyReg>, ArchPlayer::WithSM<PlayerStates>>;
     PlayersQuery m_query;
 };
 
+
+struct MobStateSystem
+{
+public:
+    MobStateSystem(ECS::Registry<MyReg> &reg_) :
+        m_query{reg_.getQueryTl(ArchMob::WithSM<MobStates>())}
+    {
+    }
+
+    void initAll()
+    {
+        std::apply([&](auto&&... args) {
+            ((
+                (initArch(args))
+                ), ...);
+            }, m_query.m_tpl);
+    }
+
+    void updateAll()
+    {
+        std::apply([&](auto&&... args) {
+            ((
+                (updateArch(args))
+                ), ...);
+            }, m_query.m_tpl);
+    }
+
+    template<typename T>
+    void initArch(T &arch_)
+    {
+        for (int i = 0; i < arch_.size(); ++i)
+            initInstance(arch_.getEntity(i));
+    }
+
+    template<typename T2>
+    void initInstance(T2 inst_)
+    {
+        auto &smc = std::get<StateMachine<ArchMob::MakeRef, MobStates>&>(inst_);
+
+        auto tmproam = std::unique_ptr<StateMobMetaRoam>(new StateMobMetaRoam());
+        tmproam->addState(std::unique_ptr<StateMobNavigation>(new StateMobNavigation(MobStates::WALK, 2.0f, {MobStates::NONE, {MobStates::IDLE}})));
+        tmproam->addState(std::unique_ptr<StateIdle<ArchMob::MakeRef, MobStates>>(new StateIdle<ArchMob::MakeRef, MobStates>(MobStates::IDLE, {MobStates::NONE, {MobStates::WALK, MobStates::RUN}})));
+        tmproam->setInitialState(MobStates::IDLE);
+    
+        auto tmpchase = std::unique_ptr<StateMobMetaChase>(new StateMobMetaChase());
+        tmpchase->addState(std::unique_ptr<StateMobNavigation>(new StateMobNavigation(MobStates::RUN, 5.0f, {MobStates::NONE, {MobStates::IDLE, MobStates::WALK}})));
+        tmpchase->setInitialState(MobStates::RUN);
+    
+        smc.addState(std::move(tmproam));
+        smc.addState(std::move(tmpchase));
+    
+        smc.setInitialState(MobStates::META_ROAM);
+    }
+
+    template<typename T>
+    void updateArch(T &arch_)
+    {
+        auto &smcs = arch_.template get<StateMachine<ArchMob::MakeRef, MobStates>>();
+        for (int i = 0; i < arch_.size(); ++i)
+        {
+            auto inst = arch_.template getEntity<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentMobNavigation>(i);
+            auto &smc = smcs[i];
+            smc.update(inst, 0);
+        }
+    }
+
+private:
+    using MobsQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQueryTl<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentMobNavigation, StateMachine<ArchMob::MakeRef, MobStates>>), ECS::Registry<MyReg>, ArchMob::WithSM<MobStates>>;
+    MobsQuery m_query;
+};
+
+
 int main(int argc, char* args[])
 {
+    StateMachine<ArchMob::MakeRef, MobStates> mobroot;
+
     ECS::Registry<MyReg> reg;
-    reg.addEntity(ComponentTransform(), ComponentPhysical({2.3f, 39.9f, 10.0f, 15.0f}, 9.8f), ComponentCharacter("Nameless1", 1), ComponentPlayerInput(), StateMachine<PlayerRef>());
+    reg.addEntity(ComponentTransform(), ComponentPhysical({2.3f, 39.9f, 10.0f, 15.0f}, 9.8f), ComponentCharacter("Nameless1", 1), ComponentPlayerInput(), StateMachine<ArchPlayer::MakeRef, PlayerStates>());
+    reg.addEntity(ComponentTransform(), ComponentPhysical({2.3f, 39.9f, 10.0f, 15.0f}, 0.1f), ComponentCharacter("Scary Skeleton", 3), ComponentMobNavigation(), StateMachine<ArchMob::MakeRef, MobStates>());
 
     PlayerStateSystem m_st(reg);
+    MobStateSystem m_mbst(reg);
     PhysicsSystem phys(reg);
     RenderSystem ren(reg);
     InputSystem inp(reg);
 
     m_st.initAll();
+    m_mbst.initAll();
 
     bool isRunning = true;
 
@@ -272,6 +512,7 @@ int main(int argc, char* args[])
     {
         isRunning = inp.update();
         m_st.updateAll();
+        m_mbst.updateAll();
         phys.update();
         ren.update();
     }

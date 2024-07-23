@@ -76,6 +76,12 @@ struct ComponentPlayerInput
     bool m_inR = false;
 };
 
+struct ComponentMobNavigation
+{
+    int dir = 0;
+    int framesLeft = 0;
+};
+
 
 std::ostream &operator<<(std::ostream &os_, const ComponentTransform &comp_)
 {
@@ -100,3 +106,10 @@ std::ostream &operator<<(std::ostream &os_, const ComponentPlayerInput &comp_)
     os_ << std::boolalpha << "Inputs ( Left: " << comp_.m_inL << ", Right: " << comp_.m_inR << " )";
     return os_;
 }
+
+std::ostream &operator<<(std::ostream &os_, const ComponentMobNavigation &comp_)
+{
+    os_ << std::boolalpha << "MobNav ( dir: " << comp_.dir << ", frames left: " << comp_.framesLeft << " )";
+    return os_;
+}
+

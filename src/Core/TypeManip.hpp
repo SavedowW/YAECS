@@ -10,6 +10,18 @@ namespace TypeManip
     template<typename... TT>
     concept TemplateExists = sizeof...(TT) > 0;
 
+
+    template<template<typename...> typename A, template<typename...> typename B, typename... Params_t>
+    constexpr inline bool isSpecializationF(const B<Params_t...> &)
+    {
+        return std::is_same_v<A<Params_t...>, B<Params_t...>>;
+    }
+
+    // Checks that Spec_t is specialization of template Base_t
+    template<template<typename...> typename Base_t, typename Spec_t>
+    concept IsSpecialization = isSpecializationF<Base_t>(Spec_t());
+
+
     // Container that only contains list of types in its type definition
     template<typename... Args>
     struct Typelist {

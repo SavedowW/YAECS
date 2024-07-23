@@ -8,6 +8,9 @@
 #include <string>
 #include <iostream>
 
+template<typename, typename>
+class StateMachine;
+
 namespace ECS
 {
     // The system only indexes entities withing archetypes so its rarely used
@@ -190,6 +193,15 @@ namespace ECS
     struct ArchList {
         template<typename... COMPS_T>
         using add = ArchList<T..., Archetype<COMPS_T...>>;
+
+        template<typename... Ts>
+        static inline constexpr auto AddTypelist(TypeManip::Typelist<Ts...>)
+        {
+            return add<Ts...>();
+        }
+
+        template<typename CompList> requires TypeManip::IsSpecialization<TypeManip::Typelist, CompList>
+        using addTypelist = decltype(AddTypelist<>(CompList()));
     };
 
     /*
@@ -264,6 +276,20 @@ namespace ECS
         }
 
         /*
+            Request query with all archetypes that contain all specified components in passed typelist
+            If you want something other that conjunction, feel free to call this as much as you want, this operation really fast
+            Might potentially extend to be able to query archetypes as < INCLUDE<COMPONENT1, COMPONENT2>, EXCLUDE<COMPONENT1, COMPONENT2>>
+        */
+        template<typename... T>
+        constexpr inline auto getQueryTl(const TypeManip::Typelist<T...> &tl)
+        {
+            static_assert(sizeof...(T) > 0, "Registry::getTuples should receive at least 1 template parameter");
+            static_assert(is_unique<T...>, "All parameters in Registry::getTuples should be unique");
+            return Query(std::tuple_cat(filter<T...>(std::get<Args>(m_archetypes))...));
+        }
+
+
+        /*
             Get archetype with specified components in this specific order
         */
         template<typename... T>
@@ -296,6 +322,16 @@ namespace ECS
     private:
         std::tuple<Args...> m_archetypes;
 
+    };
+
+    template<typename... CompList>
+    struct EntityData
+    {
+        using ComponentList = TypeManip::Typelist<CompList...>;
+        using MakeRef = EntityRef<CompList...>;
+
+        template<typename STATES_T>
+        using WithSM = TypeManip::Typelist<CompList..., StateMachine<MakeRef, STATES_T>>;
     };
 
 }

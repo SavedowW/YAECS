@@ -168,6 +168,32 @@ namespace utils
         return res;
     }
 
+    void dumpType(std::ostream &os_, const std::string &type_)
+    {
+        auto res = replaceAll(type_, " ", "");
+        int intendLevel = 0;
+        for (const auto &ch : type_)
+        {
+            if (ch == '>')
+            {
+                intendLevel -= 4;
+                os_ << "\n" << getIntend(intendLevel);
+                os_ << ch;
+            }
+            else
+            {
+                os_ << ch;
+
+                if (ch == '<')
+                    intendLevel += 4;
+            }
+                
+
+            if (ch == '<' || ch == ',')
+                os_ << "\n" << getIntend(intendLevel);
+        }
+    }
+
 
 }
 
