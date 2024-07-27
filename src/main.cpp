@@ -491,7 +491,9 @@ private:
 
 int main(int argc, char* args[])
 {
-    StateMachine<ArchMob::MakeRef, MobStates> mobroot;
+    ECS::Archetype<ComponentCharacter, ComponentTransform, ComponentPhysical> arch;
+    auto &res = arch.getLast();
+    std::cout << typeid(res).name() << std::endl;
 
     ECS::Registry<MyReg> reg;
     reg.addEntity(ComponentTransform(), ComponentPhysical({2.3f, 39.9f, 10.0f, 15.0f}, 9.8f), ComponentCharacter("Nameless1", 1), ComponentPlayerInput(), StateMachine<ArchPlayer::MakeRef, PlayerStates>());

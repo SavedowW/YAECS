@@ -12,14 +12,14 @@ namespace TypeManip
 
 
     template<template<typename...> typename A, template<typename...> typename B, typename... Params_t>
-    constexpr inline bool isSpecializationF(const B<Params_t...> &)
+    constexpr inline bool isSpecializationF(B<Params_t...>*)
     {
         return std::is_same_v<A<Params_t...>, B<Params_t...>>;
     }
 
     // Checks that Spec_t is specialization of template Base_t
     template<template<typename...> typename Base_t, typename Spec_t>
-    concept IsSpecialization = isSpecializationF<Base_t>(Spec_t());
+    concept IsSpecialization = isSpecializationF<Base_t>(static_cast<Spec_t*>(nullptr));
 
 
     // Container that only contains list of types in its type definition
@@ -176,6 +176,18 @@ namespace TypeManip
     {
     
         return pushForward<TypeRegistry>(TypeManip::Typelist<T1>() + sort<TypeRegistry>(TypeManip::Typelist<T2, Rest...>()));
+    }
+
+    template<template<typename...> typename Base_t, typename T>
+    constexpr bool isLastSpecialization()
+    {
+        return IsSpecialization<Base_t, T>;
+    }
+
+    template<template<typename...> typename Base_t, typename T, typename... Rest> requires TemplateExists<Rest...>
+    constexpr bool isLastSpecialization()
+    {
+        return isLastSpecialization<Base_t, Rest...>();
     }
 
 }

@@ -116,6 +116,12 @@ namespace ECS
             return std::get<std::vector<T>>(m_components);
         }
 
+        // Get last component
+        constexpr inline auto &getLast()
+        {
+            return std::get<std::tuple_size_v<decltype(m_components)> - 1>(m_components);
+        }
+
         inline EntityRef<Args...> getEntity(Entity ent_)
         {
             return std::tuple<Args&...>((std::get<std::vector<Args>>(m_components)[ent_]) ...);
@@ -130,6 +136,15 @@ namespace ECS
         inline size_t size() const
         {
             return std::get<0>(m_components).size();
+        }
+
+        /*
+            Checks if last component is a specialization of certain type
+        */
+        template<template<typename...> typename Base_t>
+        static constexpr bool isLastSpecialization()
+        {
+            return TypeManip::isLastSpecialization<Base_t, Args...>();
         }
 
     private:
@@ -172,6 +187,17 @@ namespace ECS
         constexpr inline auto &get()
         {
             return std::get<Archetype<TT...>&>(m_tpl);
+        }
+
+        template<int ID>
+        constexpr inline auto &get()
+        {
+            return std::get<ID>(m_tpl);
+        }
+
+        static constexpr inline auto size()
+        {
+            return std::tuple_size<std::tuple<Args...>>::value;
         }
     };
 
