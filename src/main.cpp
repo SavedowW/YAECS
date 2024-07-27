@@ -162,7 +162,7 @@ public:
 
     }
 
-    inline virtual void enter(ArchPlayer::MakeRef &owner_, PlayerStates from_)
+    inline virtual void enter(ArchPlayer::MakeRef &owner_, PlayerStates from_) override
     {
         GenericState<ArchPlayer::MakeRef, PlayerStates>::enter(owner_, from_);
 
@@ -238,7 +238,7 @@ public:
 
     }
 
-    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_)
+    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_) override
     {
         GenericState<ArchMob::MakeRef, MobStates>::enter(owner_, from_);
 
@@ -288,7 +288,7 @@ public:
     {
     }
 
-    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_)
+    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_) override
     {
         auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
         mobdata.framesLeft = 10;
@@ -341,7 +341,7 @@ public:
     {
     }
 
-    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_)
+    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_) override
     {
         switchCurrentState(owner_, MobStates::RUN);
     }
@@ -491,10 +491,6 @@ private:
 
 int main(int argc, char* args[])
 {
-    ECS::Archetype<ComponentCharacter, ComponentTransform, ComponentPhysical> arch;
-    auto &res = arch.getLast();
-    std::cout << typeid(res).name() << std::endl;
-
     ECS::Registry<MyReg> reg;
     reg.addEntity(ComponentTransform(), ComponentPhysical({2.3f, 39.9f, 10.0f, 15.0f}, 9.8f), ComponentCharacter("Nameless1", 1), ComponentPlayerInput(), StateMachine<ArchPlayer::MakeRef, PlayerStates>());
     reg.addEntity(ComponentTransform(), ComponentPhysical({2.3f, 39.9f, 10.0f, 15.0f}, 0.1f), ComponentCharacter("Scary Skeleton", 3), ComponentMobNavigation(), StateMachine<ArchMob::MakeRef, MobStates>());
