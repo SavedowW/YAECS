@@ -109,11 +109,28 @@ namespace TypeManip
             return GetRecursive<T, Rest...>();
         }
     }
+
+    template<int ID, typename Current, typename... Rest>
+    constexpr auto GetRecursiveField()
+    {
+        if constexpr (ID == Current::Value)
+        {
+            return Current();
+        }
+        else
+        {
+            static_assert(sizeof...(Rest) > 0, "ID was not found");
+            return GetRecursiveField<ID, Rest...>();
+        }
+    }
     
-    template<int Next = 0, typename... Ts>
+    
+    template<int Next = 1, typename... Ts>
     struct TypeRegistry
     {
-        using Create = TypeRegistry<0>;
+        static constexpr inline int MaxID = Next - 1;
+
+        using Create = TypeRegistry<1>;
     
         template<typename T>
         using Add = TypeRegistry<Next + 1, Ts..., MapField<T, Next>>;
@@ -123,6 +140,9 @@ namespace TypeManip
         {
             return GetRecursive<T, Ts...>();
         }
+
+        template<int ID>
+        using GetById = decltype(GetRecursiveField<ID, Ts...>())::Type;
     };
     
     template<typename TypeRegistry, typename T>

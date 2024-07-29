@@ -1,547 +1,285 @@
-#include "ExampleComponents.h"
-#include "yaECS.hpp"
-#include <iostream>
-#include <string>
 #include "Utils.h"
-#include "CoreComponents.h"
-#include <array>
-#include <vector>
-#include "StateMachine.hpp"
+#include "TypeManip.hpp"
+#include "ExampleComponents.h"
+#include <iostream>
+#include <unordered_map>
+#include <exception>
 
-enum class PlayerStates {
-    IDLE,
-    RUN,
-    NONE
-};
+using Components = TypeManip::TypeRegistry<>::Create
+    ::Add<ComponentTransform>
+    ::Add<ComponentPhysical>
+    ::Add<ComponentCharacter>
+    ::Add<ComponentPlayerInput>
+    ::Add<ComponentMobNavigation>;
 
-enum class MobStates {
-    META_ROAM,
-    META_CHASE,
-    IDLE,
-    WALK,
-    RUN,
-    NONE
-};
-
-using ArchPlayer = ECS::EntityData<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput>;
-using ArchMob = ECS::EntityData<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentMobNavigation>;
-
-// Make an archetype list for example
-using MyReg = ECS::ArchList<>
-    ::addTypelist<ArchPlayer::WithSM<PlayerStates>>
-    ::addTypelist<ArchMob::WithSM<MobStates>>;
-
-/*
-    Examples of systems
-    Yes, you need to duplicate getQuery to specify field type and actually call it, I don't know what to do about it
-    A system can get as much queries as it wants, there are no limitations
-*/
-
-struct PhysicsSystem
+class UntypeContainer
 {
-    PhysicsSystem(ECS::Registry<MyReg> &reg_) :
-        m_tuples{reg_.getQuery<ComponentTransform, ComponentPhysical>()}
+public:
+    template<typename T>
+    UntypeContainer(int count_, T *ptr_) :
+        m_entrySize(sizeof(T)),
+        m_capacity(count_)
     {
-        
-    }
+        m_data = new T[count_];
 
-    void update()
-    {
-        std::apply([&](auto&&... args) {
-            ((
-                updateCon(args.template get<ComponentTransform>(), args.template get<ComponentPhysical>())
-                ), ...);
-            }, m_tuples.m_tpl);
-    }
-
-    void updateCon(std::vector<ComponentTransform> &transform_, std::vector<ComponentPhysical> &physical_)
-    {
-        for (int i = 0; i < transform_.size(); ++i)
+        m_cleaner = [](void* data_)
         {
-            physical_[i].m_velocity.y += physical_[i].m_gravity;
-            transform_[i].m_pos += physical_[i].m_velocity;
-        }
+            delete []static_cast<T*>(data_);
+        };
     }
 
-    using PhysObjectsQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQuery<ComponentTransform, ComponentPhysical>), ECS::Registry<MyReg>>;
+    UntypeContainer() = default;
 
-    PhysObjectsQuery m_tuples;
-};
+    UntypeContainer(const UntypeContainer &rhs_) = delete;
+    UntypeContainer &operator=(const UntypeContainer &rhs_) = delete;
 
-struct InputSystem
-{
-    InputSystem(ECS::Registry<MyReg> &reg_) :
-        m_query{reg_.getQuery<ComponentPlayerInput>()}
+    UntypeContainer(UntypeContainer &&rhs_) :
+        m_data(rhs_.m_data),
+        m_capacity(rhs_.m_capacity),
+        m_size(rhs_.m_size),
+        m_entrySize(rhs_.m_entrySize),
+        m_cleaner(rhs_.m_cleaner)
     {
-        
+        rhs_.m_data = nullptr;
+        rhs_.m_capacity = 0;
+        rhs_.m_size = 0;
+        rhs_.m_entrySize = 0;
+        rhs_.m_cleaner = nullptr;
     }
-
-    bool update()
+    
+    UntypeContainer &operator=(UntypeContainer &&rhs_)
     {
-        bool l = false;
-        bool r = false;
-        std::string buf;
-        std::getline(std::cin, buf);
-        if (buf.contains('l') || buf.contains('L'))
-            l = true;
-        if (buf.contains('r') || buf.contains('R'))
-            r = true;
+        m_data = rhs_.m_data;
+        m_capacity = rhs_.m_capacity;
+        m_size = rhs_.m_size;
+        m_entrySize = rhs_.m_entrySize;
+        m_cleaner = rhs_.m_cleaner;
 
-        std::apply([&](auto&&... args) {
-            ((
-                updateCon(args.template get<ComponentPlayerInput>(), l, r)
-                ), ...);
-            }, m_query.m_tpl);
+        rhs_.m_data = nullptr;
+        rhs_.m_capacity = 0;
+        rhs_.m_size = 0;
+        rhs_.m_entrySize = 0;
+        rhs_.m_cleaner = nullptr;
 
-        return !buf.contains('q');
-    }
-
-    void updateCon(std::vector<ComponentPlayerInput> &input_, bool l_, bool r_)
-    {
-        for (int i = 0; i < input_.size(); ++i)
-        {
-            input_[i].m_inL = l_;
-            input_[i].m_inR = r_;
-        }
-    }
-
-    using PhysObjectsQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQuery<ComponentPlayerInput>), ECS::Registry<MyReg>>;
-
-    PhysObjectsQuery m_query;
-};
-
-struct RenderSystem
-{
-    RenderSystem(ECS::Registry<MyReg> &reg_) :
-        m_tuples{reg_.getQuery<ComponentTransform>()}
-    {
-        
-    }
-
-    void update()
-    {
-        std::apply([&](auto&&... args) {
-            ((
-                (updateDistrib(args))
-                ), ...);
-            }, m_tuples.m_tpl);
+        return *this;
     }
 
     template<typename T>
-    void updateDistrib(T &arch)
+    bool allocate(int count_)
     {
-        // Its possible to check whether or not an archetype has a component at compile time
-        /*
-        if constexpr (T::template containsOne<ComponentCharacter>())
-        {
-            updateCon(arch.template get<ComponentTransform>(), arch.template get<ComponentCharacter>());
-        }
-        else
-        {
-            updateCon(arch.template get<ComponentTransform>());
-        }
-        */
-        for (int i = 0 ; i < arch.size(); ++i)
-        {
-            std::cout << arch.getEntity(i) << std::endl;
-        }
-    }
-
-    using TransformObjectQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQuery<ComponentTransform>), ECS::Registry<MyReg>>;
-
-    TransformObjectQuery m_tuples;
-};
-
-class StateRun : public GenericState<ArchPlayer::MakeRef, PlayerStates>
-{
-public:
-    StateRun(float horSpeed_) :
-        GenericState<ArchPlayer::MakeRef, PlayerStates>(PlayerStates::RUN, "Run", {PlayerStates::NONE, {PlayerStates::IDLE, PlayerStates::RUN}}),
-        m_horSpeed(horSpeed_)
-    {
-
-    }
-
-    inline virtual void enter(ArchPlayer::MakeRef &owner_, PlayerStates from_) override
-    {
-        GenericState<ArchPlayer::MakeRef, PlayerStates>::enter(owner_, from_);
-
-        auto &trans = std::get<ComponentTransform&>(owner_);
-        auto &phys = std::get<ComponentPhysical&>(owner_);
-
-        if (trans.m_orientation == ORIENTATION::LEFT)
-        {
-            phys.m_velocity.x = -m_horSpeed;
-        }
-        else if (trans.m_orientation == ORIENTATION::RIGHT)
-        {
-            phys.m_velocity.x = m_horSpeed;
-        }
-    }
-
-    inline virtual bool update(ArchPlayer::MakeRef &owner_, uint32_t currentFrame_) override
-    {
-        GenericState<ArchPlayer::MakeRef, PlayerStates>::update(owner_, currentFrame_);
-
-        auto &trans = std::get<ComponentTransform&>(owner_);
-        auto &inp = std::get<ComponentPlayerInput&>(owner_);
-
-        if (inp.m_inL && trans.m_orientation == ORIENTATION::LEFT || inp.m_inR && trans.m_orientation == ORIENTATION::RIGHT)
+        if (m_data)
             return false;
-        else
+
+        m_entrySize = sizeof(T);
+        m_capacity = count_;
+        m_size = 0;
+        m_data = new T[count_];
+        m_cleaner = [](void* data_)
         {
-            std::cout << "Can leave\n";
-            return true;
-        }
+            delete []static_cast<T*>(data_);
+        };
+
+        return true;
     }
 
-    inline virtual ORIENTATION isPossible(ArchPlayer::MakeRef &owner_) const override
+    template<typename T>
+    bool allocated() const
     {
-        auto &inp = std::get<ComponentPlayerInput&>(owner_);
-        if (inp.m_inL)
-            return ORIENTATION::LEFT;
-        else if (inp.m_inR)
-            return ORIENTATION::RIGHT;
-
-        return ORIENTATION::UNSPECIFIED;
+        return m_data;
     }
 
-protected:
-    int m_horSpeed;
-};
-
-template<typename Owner_t, typename PLAYER_STATE_T>
-class StateIdle : public GenericState<Owner_t, PLAYER_STATE_T>
-{
-public:
-    StateIdle(PLAYER_STATE_T state_, StateMarker<PLAYER_STATE_T> &&transitionableFrom_) :
-        GenericState<Owner_t, PLAYER_STATE_T>(state_, "Idle", std::move(transitionableFrom_))
+    template<typename T>
+    inline bool freemem()
     {
+        if (!m_data)
+            return false;
+
+        delete []static_cast<T*>(m_data);
+        m_entrySize = 0;
+        m_capacity = 0;
+        m_data = nullptr;
+        m_cleaner = nullptr;
+
+        return true;
     }
 
-    inline virtual void enter(Owner_t &owner_, PLAYER_STATE_T from_)
+    template<typename T>
+    T &get(size_t id_)
     {
-        auto &phys = std::get<ComponentPhysical&>(owner_);
-        phys.m_velocity.x = 0;
+        return static_cast<T*>(m_data)[id_];
     }
 
-};
-
-
-class StateMobNavigation : public GenericState<ArchMob::MakeRef, MobStates>
-{
-public:
-    StateMobNavigation(MobStates state_, float horSpeed_, StateMarker<MobStates> &&transitionableFrom_) :
-        GenericState<ArchMob::MakeRef, MobStates>(state_, "Move dir", std::move(transitionableFrom_)),
-        m_horSpeed(horSpeed_)
+    size_t size() const
     {
-
+        return m_size;
     }
 
-    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_) override
+    template <typename T>
+    void push_back(T &&rhs_)
     {
-        GenericState<ArchMob::MakeRef, MobStates>::enter(owner_, from_);
+        if (m_size == m_capacity)
+            realloc<T>(m_capacity * 1.3);
 
-        auto &trans = std::get<ComponentTransform&>(owner_);
-        auto &phys = std::get<ComponentPhysical&>(owner_);
-        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
+        static_cast<T*>(m_data)[m_size] = std::move(rhs_);
+        ++m_size;
+    }
 
-        if (mobdata.dir > 0)
+    template<typename T>
+    bool reposLastTo(size_t newIdx_)
+    {
+        if (newIdx_ >= m_size - 1)
+            return false;
+
+        auto *realarr = static_cast<T*>(m_data);
+        --m_size;
+        realarr[newIdx_] = std::move(realarr[m_size]);
+        return true;
+    }
+
+    ~UntypeContainer()
+    {
+        if (m_data)
         {
-            trans.m_orientation = ORIENTATION::LEFT;
-            phys.m_velocity.x = -m_horSpeed;
-        }
-        else
-        {
-            trans.m_orientation = ORIENTATION::RIGHT;
-            phys.m_velocity.x = m_horSpeed;
-        }
-    }
-
-    inline virtual bool update(ArchMob::MakeRef &owner_, uint32_t currentFrame_) override
-    {
-        GenericState<ArchMob::MakeRef, MobStates>::update(owner_, currentFrame_);
-
-        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
-        return (mobdata.framesLeft-- <= 0);
-    }
-
-    inline virtual ORIENTATION isPossible(ArchMob::MakeRef &owner_) const override
-    {
-        auto &trans = std::get<ComponentTransform&>(owner_);
-        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
-        if (mobdata.framesLeft > 0 && mobdata.dir != 0)
-            return (mobdata.dir > 0 ? ORIENTATION::RIGHT : ORIENTATION::LEFT);
-        else
-            return ORIENTATION::UNSPECIFIED;
-    }
-
-protected:
-    int m_horSpeed;
-};
-
-class StateMobMetaRoam : public NodeState<ArchMob::MakeRef, MobStates>
-{
-public:
-    StateMobMetaRoam() :
-        NodeState<ArchMob::MakeRef, MobStates>(MobStates::META_ROAM, "ROAM", {MobStates::NONE, {MobStates::META_CHASE}})
-    {
-    }
-
-    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_) override
-    {
-        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
-        mobdata.framesLeft = 10;
-        mobdata.dir = (rand() % 2) * 2 - 1;
-        switchCurrentState(owner_, MobStates::WALK);
-    }
-
-    virtual bool update(ArchMob::MakeRef &owner_, uint32_t currentFrame_) override
-    {
-        auto &mobdata = std::get<ComponentMobNavigation&>(owner_);
-
-        auto res = NodeState<ArchMob::MakeRef, MobStates>::update(owner_, currentFrame_);
-        if (res)
-        {
-            if (m_currentState->m_stateId == MobStates::IDLE)
-            {
-                mobdata.framesLeft = 5;
-                mobdata.dir = 0;
-            }
-        }
-        else if (m_currentState->m_stateId == MobStates::IDLE)
-        {
-            if (mobdata.framesLeft == 0)
-            {
-                mobdata.framesLeft = 10;
-                mobdata.dir = (rand() % 2) * 2 - 1;
-                switchCurrentState(owner_, MobStates::WALK);
-            }
+            if (m_cleaner)
+                m_cleaner(m_data);
             else
+                std::cout << "WARNING: untype container has been destroyed with allocated data! Lost " << m_capacity << " x " << m_entrySize << " bytes, " << m_capacity * m_entrySize << " bytes total\n";
+        }
+    }
+
+private:
+    template<typename T>
+    void realloc(size_t newCapacity)
+    {
+        T* newData = new T[newCapacity];
+        T* oldData = static_cast<T*>(m_data);
+        if (m_data)
+        {
+            auto maxid = std::min(newCapacity - 1, m_size - 1);
+            for (int i = 0; i <= maxid; ++i)
+                newData[i] = std::move(oldData[i]);
+
+            delete[] oldData;
+            m_data = newData;
+            m_size = maxid + 1;
+            m_capacity = newCapacity;
+        }
+    }
+
+    void *m_data = nullptr;
+    size_t m_capacity = 0;
+    size_t m_size = 0;
+    size_t m_entrySize = 0;
+
+    void (*m_cleaner)(void*) = nullptr;
+};
+
+template<typename TReg>
+class Archetype
+{
+public:
+    // Should be called only once after creation
+    template<typename... Ts>
+    void addTypes(int reserve_)
+    {
+        (addType<Ts>(reserve_), ...);
+    }
+
+    template<typename T>
+    bool containsEntity() const
+    {
+        return m_map.contains(TReg::template Get<T>());
+    }
+
+    inline size_t size() const
+    {
+        return m_map.begin()->second.size();
+    }
+
+    template<typename... Ts>
+    void addEntity(Ts&&... ts_)
+    {
+        size_t cnt = 0;
+        ([&]
+        {
+            if (m_map.contains(TReg::template Get<Ts>()))
             {
-                mobdata.framesLeft--;
-                std::cout << "Reduced to " << mobdata.framesLeft << std::endl;
+                m_map[TReg::template Get<Ts>()].push_back(std::forward<Ts>(ts_));
+                cnt++;
             }
-        }
+        } (), ...);
 
-        if (currentFrame_ >= 10)
-            return true;
-        
-        return false;
-        
+        if (cnt < m_map.size())
+            throw std::exception();
     }
 
-};
-
-class StateMobMetaChase : public NodeState<ArchMob::MakeRef, MobStates>
-{
-public:
-    StateMobMetaChase() :
-        NodeState<ArchMob::MakeRef, MobStates>(MobStates::META_CHASE, "CHASE", {MobStates::NONE, {MobStates::META_ROAM}})
+    void dumpAll()
     {
+        auto sz = size();
+        for (int i = 0; i < sz; ++i)
+            dumpEntity(i);
     }
 
-    inline virtual void enter(ArchMob::MakeRef &owner_, MobStates from_) override
+    void dumpEntity(size_t ent_)
     {
-        switchCurrentState(owner_, MobStates::RUN);
+        dumpEntityComponents<1, TReg::MaxID>(ent_);
+
+        std::cout << std::endl;
     }
 
-    virtual bool update(ArchMob::MakeRef &owner_, uint32_t currentFrame_) override
-    {
-        auto res = NodeState<ArchMob::MakeRef, MobStates>::update(owner_, currentFrame_);
-
-        if (currentFrame_ >= 15)
-            return true;
-        
-        return false;
-    }
-
-};
-
-struct PlayerStateSystem
-{
-public:
-    PlayerStateSystem(ECS::Registry<MyReg> &reg_) :
-        m_query{reg_.getQueryTl(ArchPlayer::WithSM<PlayerStates>())}
-    {
-    }
-
-    void initAll()
-    {
-        std::apply([&](auto&&... args) {
-            ((
-                (initArch(args))
-                ), ...);
-            }, m_query.m_tpl);
-    }
-
-    void updateAll()
-    {
-        std::apply([&](auto&&... args) {
-            ((
-                (updateArch(args))
-                ), ...);
-            }, m_query.m_tpl);
-    }
-
-    template<typename T>
-    void initArch(T &arch_)
-    {
-        for (int i = 0; i < arch_.size(); ++i)
-            initInstance(arch_.getEntity(i));
-    }
-
-    template<typename T2>
-    void initInstance(T2 inst_)
-    {
-        auto &smc = std::get<StateMachine<ArchPlayer::MakeRef, PlayerStates>&>(inst_);
-        smc.addState(std::unique_ptr<StateRun>(new StateRun(5.0f)));
-        smc.addState(std::unique_ptr<StateIdle<ArchPlayer::MakeRef, PlayerStates>>(new StateIdle<ArchPlayer::MakeRef, PlayerStates>(PlayerStates::IDLE, {PlayerStates::NONE, {PlayerStates::RUN}})));
-        smc.setInitialState(PlayerStates::IDLE);
-    }
-
-    template<typename T>
-    void updateArch(T &arch_)
-    {
-        auto &smcs = arch_.template get<StateMachine<ArchPlayer::MakeRef, PlayerStates>>();
-        for (int i = 0; i < arch_.size(); ++i)
-        {
-            auto inst = arch_.template getEntity<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput>(i);
-            auto &smc = smcs[i];
-            smc.update(inst, 0);
-        }
-    }
+    std::unordered_map<int, UntypeContainer> m_map;
 
 private:
-    using PlayersQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQueryTl<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentPlayerInput, StateMachine<ArchPlayer::MakeRef, PlayerStates>>), ECS::Registry<MyReg>, ArchPlayer::WithSM<PlayerStates>>;
-    PlayersQuery m_query;
-};
-
-
-struct MobStateSystem
-{
-public:
-    MobStateSystem(ECS::Registry<MyReg> &reg_) :
-        m_query{reg_.getQueryTl(ArchMob::WithSM<MobStates>())}
-    {
-    }
-
-    void initAll()
-    {
-        std::apply([&](auto&&... args) {
-            ((
-                (initArch(args))
-                ), ...);
-            }, m_query.m_tpl);
-    }
-
-    void updateAll()
-    {
-        std::apply([&](auto&&... args) {
-            ((
-                (updateArch(args))
-                ), ...);
-            }, m_query.m_tpl);
-    }
-
     template<typename T>
-    void initArch(T &arch_)
+    void addType(int reserve_)
     {
-        for (int i = 0; i < arch_.size(); ++i)
-            initInstance(arch_.getEntity(i));
+        m_map[TReg::template Get<T>()].template allocate<T>(reserve_);
     }
 
-    template<typename T2>
-    void initInstance(T2 inst_)
+    template<int current, int max>
+    void dumpEntityComponents(size_t ent_)
     {
-        auto &smc = std::get<StateMachine<ArchMob::MakeRef, MobStates>&>(inst_);
-
-        auto tmproam = std::unique_ptr<StateMobMetaRoam>(new StateMobMetaRoam());
-        tmproam->addState(std::unique_ptr<StateMobNavigation>(new StateMobNavigation(MobStates::WALK, 2.0f, {MobStates::NONE, {MobStates::IDLE}})));
-        tmproam->addState(std::unique_ptr<StateIdle<ArchMob::MakeRef, MobStates>>(new StateIdle<ArchMob::MakeRef, MobStates>(MobStates::IDLE, {MobStates::NONE, {MobStates::WALK, MobStates::RUN}})));
-        tmproam->setInitialState(MobStates::IDLE);
-    
-        auto tmpchase = std::unique_ptr<StateMobMetaChase>(new StateMobMetaChase());
-        tmpchase->addState(std::unique_ptr<StateMobNavigation>(new StateMobNavigation(MobStates::RUN, 5.0f, {MobStates::NONE, {MobStates::IDLE, MobStates::WALK}})));
-        tmpchase->setInitialState(MobStates::RUN);
-    
-        smc.addState(std::move(tmproam));
-        smc.addState(std::move(tmpchase));
-    
-        smc.setInitialState(MobStates::META_ROAM);
-    }
-
-    template<typename T>
-    void updateArch(T &arch_)
-    {
-        auto &smcs = arch_.template get<StateMachine<ArchMob::MakeRef, MobStates>>();
-        for (int i = 0; i < arch_.size(); ++i)
+        if (m_map.contains(current))
         {
-            auto inst = arch_.template getEntity<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentMobNavigation>(i);
-            auto &smc = smcs[i];
-            smc.update(inst, 0);
+            std::cout << m_map[current].template get<typename TReg::template GetById<current>>(ent_) << ", ";
         }
+        
+        if constexpr (current < max)
+            dumpEntityComponents<current + 1, max>(ent_);
     }
-
-private:
-    using MobsQuery = std::invoke_result_t<decltype(&ECS::Registry<MyReg>::getQueryTl<ComponentTransform, ComponentPhysical, ComponentCharacter, ComponentMobNavigation, StateMachine<ArchMob::MakeRef, MobStates>>), ECS::Registry<MyReg>, ArchMob::WithSM<MobStates>>;
-    MobsQuery m_query;
 };
-
 
 int main(int argc, char* args[])
 {
-    ECS::Registry<MyReg> reg;
-    reg.addEntity(ComponentTransform(), ComponentPhysical({2.3f, 39.9f, 10.0f, 15.0f}, 9.8f), ComponentCharacter("Nameless1", 1), ComponentPlayerInput(), StateMachine<ArchPlayer::MakeRef, PlayerStates>());
-    reg.addEntity(ComponentTransform(), ComponentPhysical({2.3f, 39.9f, 10.0f, 15.0f}, 0.1f), ComponentCharacter("Scary Skeleton", 3), ComponentMobNavigation(), StateMachine<ArchMob::MakeRef, MobStates>());
+    std::cout << "Hello\n";
 
-    PlayerStateSystem m_st(reg);
-    MobStateSystem m_mbst(reg);
-    PhysicsSystem phys(reg);
-    RenderSystem ren(reg);
-    InputSystem inp(reg);
+    utils::dumpType(std::cout, typeid(Components).name());
 
-    m_st.initAll();
-    m_mbst.initAll();
+    /*UntypeContainer comps(5, static_cast<ComponentA*>(nullptr));
 
-    bool isRunning = true;
+    comps.push_back<ComponentA>(ComponentA(1));
+    comps.push_back<ComponentA>(ComponentA(2));
+    comps.push_back<ComponentA>(ComponentA(3));
+    comps.push_back<ComponentA>(ComponentA(4));
+    comps.push_back<ComponentA>(ComponentA(5));
+    comps.reposLastTo<ComponentA>(2);
+    comps.push_back<ComponentA>(ComponentA(6));
+    comps.push_back<ComponentA>(ComponentA(7));
+    comps.push_back<ComponentA>(ComponentA(8));
+    comps.push_back<ComponentA>(ComponentA(9));
+    comps.push_back<ComponentA>(ComponentA(10));
+    comps.reposLastTo<ComponentA>(7); // 1 2 5 4 6 7 8 10
 
-    while (isRunning)
+    for (int i = 0; i < comps.size(); ++i)
     {
-        isRunning = inp.update();
-        m_st.updateAll();
-        m_mbst.updateAll();
-        phys.update();
-        ren.update();
-    }
+        std::cout << comps.get<ComponentA>(i).value << " ";
+    }*/
 
-    /*ECS::Registry<MyReg> reg;
-    std::cout << reg.addEntity(ComponentTransform{{2.3f, -99.5f}, {1.0f, 2.0f}}, ComponentPhysical{{2.3f, 39.9f, 10.0f, 15.0f}, 9.8f}) << std::endl;
-    std::cout << reg.addEntity(ComponentTransform{{1.1f, 1.2f}, {1.1f, 1.2f}}, ComponentPhysical{{1.1f, 1.2f, 1.3f, 1.4f}, 9.9f}) << std::endl;
-    std::cout << reg.addEntity(ComponentTransform{{2.1f, 2.2f}, {2.1f, 2.2f}}, ComponentPhysical{{2.1f, 2.2f, 2.3f, 2.4f}, 10.0f}) << std::endl;
-    std::cout << reg.addEntity(ComponentTransform{{3.1f, 3.2f}, {3.1f, 3.2f}}, ComponentPhysical{{3.1f, 3.2f, 3.3f, 3.4f}, 11.0f}) << std::endl;
+    Archetype<Components> arch;
+    arch.addTypes<ComponentTransform, ComponentPhysical>(5);
+    arch.addEntity(ComponentTransform(Vector2<float>(2.0f, 3.3f), Vector2<float>(10.0f, 20.0f)), ComponentPhysical(Collider(Vector2{10.0f, 10.0f}, Vector2{100.0f, 50.0f}), 9.8f));
 
-    std::cout << reg.addEntity(ComponentTransform{{4.1f, 4.2f}, {4.1f, 4.2f}}, ComponentPhysical{{4.1f, 4.2f, 4.3f, 4.4f}, 12.0f}) << std::endl;
-
-    std::cout << reg.addEntity(ComponentTransform{{-101.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{3.1f, 3.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless1", 1}) << std::endl;
-    std::cout << reg.addEntity(ComponentTransform{{-102.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{4.1f, 4.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless2", 2}) << std::endl;
-    std::cout << reg.addEntity(ComponentTransform{{-103.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{4.1f, 4.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless3", 3}) << std::endl;
-    std::cout << reg.addEntity(ComponentTransform{{-104.99f, -100.99f}, {1.0f, 2.0f}}, ComponentPhysical{{4.1f, 4.2f, 3.3f, 3.4f}, 11.0f}, ComponentCharacter{"Nameless4", 4}) << std::endl;
-    reg.dump(0);
-
-    PhysicsSystem phys(reg);
-    RenderSystem ren(reg);
-
-    int cmd = 1;
-    while (cmd)
-    {
-        if (cmd > 5)
-            reg.convert<ECS::Archetype<ComponentTransform, ComponentPhysical, ComponentCharacter>, ECS::Archetype<ComponentTransform, ComponentCharacter>>(0);
-        phys.update();
-        ren.update();
-        std::cin >> cmd;
-    }
-
-
-    reg.dump(0);*/
+    arch.dumpEntity(0);
+    std::cout << "\nEnding\n";
+    
 }
