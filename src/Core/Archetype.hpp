@@ -6,38 +6,6 @@
 namespace ECS
 {
     /*
-        View for an entity in archetype
-        Only used for immediate access to its components
-        Entity view is outdated when at least one of component containers has been reallocated,
-        entity was deleted or another entity in this archetype was deleted while this was the last one
-    */
-    template<typename TReg>
-    class EntityView
-    {
-    public:
-        template<typename... Comps>
-        EntityView(Comps*... comps_) :
-            m_components{{TReg::template Get<Comps>(), comps_}...}
-        {
-        }
-
-        template<typename T>
-        T &get()
-        {
-            return *static_cast<T*>(m_components[TReg::template Get<T>()]);
-        }
-
-        template<typename T>
-        bool contains() const
-        {
-            return m_components.contains(TReg::template Get<T>());
-        }
-
-    private:
-        std::unordered_map<int, void*> m_components;
-    };
-
-    /*
         Archetype class
         A container for a number of component containers
         These components should be defined once right after initialization
@@ -159,9 +127,9 @@ namespace ECS
         }
 
         template<typename... Comps>
-        EntityView<TReg> makeView(size_t ent_)
+        std::tuple<Comps&...> makeView(size_t ent_)
         {
-            return EntityView<TReg>(&m_map[TReg::template Get<Comps>()].template get<Comps>(ent_)...);
+            return std::tie<Comps&...>(m_map.at(TReg::template Get<Comps>()).template get<Comps>(ent_)...);
         }
         
         std::bitset<TReg::MaxID> getMask() const

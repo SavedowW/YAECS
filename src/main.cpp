@@ -56,8 +56,6 @@ int main(int argc, char* args[])
     arch.removeEntity(7);
     arch.dumpAll();
 
-    auto view = arch.makeView<ComponentTransform>(2);
-    view.get<ComponentTransform>().m_pos.x = 123;
     std::cout << " === \n";
     arch.dumpAll();
 
@@ -79,5 +77,18 @@ int main(int argc, char* args[])
 
     std::cout << "after edit:\n";
     reg.dumpAll();
+
+    auto view = arch.makeView<ComponentTransform, ComponentPhysical>(2);
+    auto [trans_, phys_] = arch.makeView<ComponentTransform, ComponentPhysical>(2);
+    std::cout << typeid(view).name() << std::endl;
+    std::cout << typeid(trans_).name() << std::endl;
+    std::cout << typeid(phys_).name() << std::endl;
+
+    arch.dumpAll();
+    phys_.m_gravity = 100.0f;
+    trans_.m_size = {999.999f, 999.999f};
+    arch.dumpAll();
+
+    //view.get<ComponentTransform>().m_pos.x = 123;
 
 }

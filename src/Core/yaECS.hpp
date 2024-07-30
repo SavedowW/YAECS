@@ -66,6 +66,13 @@ namespace ECS
                 el.dumpAll();
         }
 
+    // TODO:
+    // Remove component from entity
+    // Remove entity
+    // Make cross-archetype view
+    // Make iteration over view
+
+
     private:
         template<typename... Comps> requires TypeManip::TemplateExists<Comps...>
         size_t getEnsureArchetype()
