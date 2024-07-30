@@ -89,6 +89,7 @@ namespace TypeManip
         os_ << "(EMPTY)\n";
     }
 
+    // Structures to statically map ints (or potentially any type) to types
     template<typename T, int ID>
     struct MapField
     {
@@ -145,6 +146,7 @@ namespace TypeManip
         using GetById = decltype(GetRecursiveField<ID, Ts...>())::Type;
     };
     
+    // Functions to sort types in typelist according to TypeRegistry
     template<typename TypeRegistry, typename T>
     constexpr bool isSorted()
     {
@@ -198,6 +200,7 @@ namespace TypeManip
         return pushForward<TypeRegistry>(TypeManip::Typelist<T1>() + sort<TypeRegistry>(TypeManip::Typelist<T2, Rest...>()));
     }
 
+    // Is last type in template pack a specialization of certain template
     template<template<typename...> typename Base_t, typename T>
     constexpr bool isLastSpecialization()
     {
@@ -208,6 +211,12 @@ namespace TypeManip
     constexpr bool isLastSpecialization()
     {
         return isLastSpecialization<Base_t, Rest...>();
+    }
+
+    template<typename T, typename... Ts>
+    constexpr bool isListed()
+    {
+        return (std::is_same_v<T, Ts> || ...);
     }
 
 }

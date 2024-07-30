@@ -4,6 +4,7 @@ project(Core)
 
 set(CORE_SRC_FILES
 CoreComponents.cpp
+UntypeContainer.cpp
 )
 
 add_library (Core ${CORE_SRC_FILES})

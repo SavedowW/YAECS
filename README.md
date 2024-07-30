@@ -8,7 +8,8 @@ Yes, its a yet another implementation of an ECS on c++ with templates and stuff.
 - No global indexing (and I honestly don't know how to implement it, at least without type erasure, or even why would you use it)
 - No preservable indexing within archetypes - this could be changed later on
 
-The only relevant files are `yaECS.hpp` and `TypeManip.hpp`. `ExampleComponents.h` contains relevant examples, `utils.h` contains some utilities used for debugging and dumping data, `main.cpp` contains examples of systems and usage examples, `Vector2.h` contains some structures used for examples, the rest are essentially irrelevant.
+The only relevant files are `yaECS.hpp`, `Archetype.hpp`, `UntypeContainer.h` and `TypeManip.hpp`. `ExampleComponents.h` contains relevant examples, `utils.h` contains some utilities used for debugging and dumping data, `main.cpp` contains examples of systems and usage examples, `Vector2.h` contains some structures used for examples, the rest are essentially irrelevant.
+Files like `yaECS_Static.hpp` are related to an alternative, almost fully static implementation of ecs. While its totally usable, it was abandoned due to giant, ugly interfaces and types which can't be always avoided with templates and `auto`s.
 
 # TODOs
 - Add callbacks for add / delete / convert operations or when entity is moved for archetypes
