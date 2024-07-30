@@ -23,6 +23,16 @@ namespace ECS
     };
 
     template<typename TReg>
+    class Registry;
+
+    template<typename TReg>
+    struct Query
+    {
+        Registry<TReg> &m_reg;
+        std::vector<size_t> m_archIds;
+    };
+
+    template<typename TReg>
     class Registry
     {
     public:
@@ -64,6 +74,27 @@ namespace ECS
             std::cout << "=== REGISTRY === " << std::endl;
             for (auto &el : m_archetypes)
                 el.dumpAll();
+        }
+
+        template<typename... Comps>
+        Query<TReg> makeQuery()
+        {
+            Query<TReg> res(*this);
+
+            constexpr std::bitset<TReg::MaxID> bset(((1ull << (TReg::template Get<Comps>() - 1)) | ...));
+            std::cout << "Quering by mask " << bset << std::endl;
+            for (auto &el : m_archTypes)
+            {
+                if ((el.first & bset) == bset)
+                {
+                    std::cout << "Archetype " << el.first << " added\n";
+                    res.m_archIds.push_back(el.second);
+                }
+                else
+                    std::cout << "Archetype " << el.first << " failed\n";
+            }
+
+            return res;
         }
 
     // TODO:

@@ -50,6 +50,15 @@ int main(int argc, char* args[])
     }
     arch.dumpAll();
 
+    auto view = arch.makeView<ComponentTransform, ComponentPhysical>(2);
+    auto [trans_, phys_] = arch.makeView<ComponentTransform, ComponentPhysical>(2);
+    std::cout << typeid(view).name() << std::endl;
+    std::cout << typeid(trans_).name() << std::endl;
+    std::cout << typeid(phys_).name() << std::endl;
+    phys_.m_gravity = 100.0f;
+    trans_.m_size = {999.999f, 999.999f};
+    arch.dumpAll();
+
     std::cout << " === \n";
     arch.removeEntity(5);
     arch.removeEntity(2);
@@ -65,7 +74,7 @@ int main(int argc, char* args[])
     reg.createEntity<ComponentTransform, ComponentMobNavigation, ComponentCharacter>();
     reg.createEntity<ComponentTransform>();
     reg.createEntity<ComponentTransform, ComponentMobNavigation, ComponentCharacter>();
-    reg.createEntity<ComponentTransform, ComponentPhysical>();
+    reg.createEntity<ComponentTransform, ComponentPhysical, ComponentMobNavigation>();
     auto lastent = reg.createEntity<ComponentTransform>();
     reg.emplaceComponents(lastent, ComponentTransform({1.1f, 5.2f}, {10.0f, 1.0f}));
 
@@ -78,17 +87,6 @@ int main(int argc, char* args[])
     std::cout << "after edit:\n";
     reg.dumpAll();
 
-    auto view = arch.makeView<ComponentTransform, ComponentPhysical>(2);
-    auto [trans_, phys_] = arch.makeView<ComponentTransform, ComponentPhysical>(2);
-    std::cout << typeid(view).name() << std::endl;
-    std::cout << typeid(trans_).name() << std::endl;
-    std::cout << typeid(phys_).name() << std::endl;
-
-    arch.dumpAll();
-    phys_.m_gravity = 100.0f;
-    trans_.m_size = {999.999f, 999.999f};
-    arch.dumpAll();
-
-    //view.get<ComponentTransform>().m_pos.x = 123;
+    auto qr = reg.makeQuery<ComponentTransform, ComponentMobNavigation>();
 
 }
