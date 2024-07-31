@@ -44,6 +44,14 @@ namespace ECS
             iterateAddTypes<1, Ts...>(copied_, reserve_);
         }
 
+        // Reserves all components from another archetype except listed ones
+        template<typename... Ts> requires TypeManip::TemplateExists<Ts...>
+        void addTypesReduced(const Archetype<TReg> &copied_, int reserve_)
+        {
+            iterateAddTypesExceptListed<1, Ts...>(copied_, reserve_);
+        }
+
+
         template<typename... Ts> requires TypeManip::TemplateExists<Ts...>
         bool containsComponents() const
         {
@@ -167,6 +175,19 @@ namespace ECS
 
             if constexpr (CurrentType < TReg::MaxID)
                 iterateAddTypes<CurrentType + 1, Ts...>(copied_, reserve_);
+        }
+
+        template<int CurrentType, typename... Ts>
+        void iterateAddTypesExceptListed(const Archetype<TReg> &copied_, int reserve_)
+        {
+            if constexpr (!TypeManip::isListed<typename TReg::template GetById<CurrentType>, Ts...>())
+            {
+                if (copied_.containsComponents<typename TReg::template GetById<CurrentType>>())
+                    addType<typename TReg::template GetById<CurrentType>>(reserve_);
+            }
+
+            if constexpr (CurrentType < TReg::MaxID)
+                iterateAddTypesExceptListed<CurrentType + 1, Ts...>(copied_, reserve_);
         }
 
         template<int current, int max>

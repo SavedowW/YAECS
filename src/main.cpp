@@ -82,11 +82,14 @@ int main(int argc, char* args[])
     arch0.addTypes<ComponentTransform, ComponentMobNavigation>(5);
 
     reg.dumpAll();
-    reg.emplaceComponents<ComponentPhysical, ComponentPlayerInput>(lastent,  ComponentPhysical(Collider(5, 2, 10, 10), 9.8), ComponentPlayerInput());
+    lastent = reg.emplaceComponents<ComponentPhysical, ComponentPlayerInput>(lastent,  ComponentPhysical(Collider(5, 2, 10, 10), 9.8), ComponentPlayerInput());
 
     std::cout << "after edit:\n";
     reg.dumpAll();
 
     auto qr = reg.makeQuery<ComponentTransform, ComponentMobNavigation>();
+
+    reg.removeComponents<ComponentPlayerInput>(lastent);
+    reg.dumpAll();
 
 }

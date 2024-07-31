@@ -69,6 +69,33 @@ namespace ECS
             }
         }
 
+        // Components are expected to be unique
+        template<typename... Comps> requires TypeManip::TemplateExists<Comps...>
+        EntityIndex removeComponents(const EntityIndex &idx_)
+        {
+            auto newmask = removeFromMask<Comps...>(m_archetypes[idx_.m_archetypeId].getMask());
+            auto newarch = 0;
+
+            // Ensure that archetype with same components except listed exists
+            auto fnd = m_archTypes.find(newmask);
+            if (fnd == m_archTypes.end())
+            {
+                std::cout << "Archetype " << newmask << " doesn't exist, creating new\n";
+                newarch = m_archetypes.size();
+                m_archTypes[newmask] = newarch;
+                m_archetypes.emplace_back();
+                m_archetypes[newarch].addTypesReduced<Comps...>(m_archetypes[idx_.m_archetypeId], 5);
+            }
+            else
+                newarch = fnd->second;
+
+            auto newent = m_archetypes[newarch].addEntity();
+            recursiveMoveAllRequired<1>(m_archetypes[idx_.m_archetypeId], m_archetypes[newarch], idx_.m_entityId, newent);
+            m_archetypes[idx_.m_archetypeId].removeEntity(idx_.m_entityId);
+
+            return idx_;
+        }
+
         void dumpAll()
         {
             std::cout << "=== REGISTRY === " << std::endl;
@@ -164,11 +191,30 @@ namespace ECS
                 recursiveEmplace<CurrentType + 1, Emplaced...>(oldArch_, newArch_, oldId_, newId_);
         }
 
+        template<int CurrentType>
+        void recursiveMoveAllRequired(Archetype<TReg> &oldArch_, Archetype<TReg> &newArch_, std::size_t oldId_, std::size_t newId_)
+        {
+            if (newArch_.containsComponents<typename TReg::template GetById<CurrentType>>())
+            {
+                newArch_.emplaceComponents(newId_, std::move(oldArch_.template getComponent<typename TReg::template GetById<CurrentType>>(oldId_)));
+            }
+
+            if constexpr (CurrentType < TReg::MaxID)
+                recursiveMoveAllRequired<CurrentType + 1>(oldArch_, newArch_, oldId_, newId_);
+        }
+
         template<typename... Ts>
-        constexpr std::bitset<TReg::MaxID> extendMask(const std::bitset<TReg::MaxID> &bitset_)
+        static constexpr std::bitset<TReg::MaxID> extendMask(const std::bitset<TReg::MaxID> &bitset_)
         {
             std::bitset<TReg::MaxID> bset2(((1ull << (TReg::template Get<Ts>() - 1)) | ...));
             return bitset_ | bset2;
+        }
+
+        template<typename... Ts>
+        static constexpr std::bitset<TReg::MaxID> removeFromMask(const std::bitset<TReg::MaxID> &bitset_)
+        {
+            std::bitset<TReg::MaxID> bset2(((~(1ull << (TReg::template Get<Ts>() - 1))) & ...));
+            return bitset_ & bset2;
         }
 
         std::vector<Archetype<TReg>> m_archetypes;

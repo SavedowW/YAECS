@@ -9,6 +9,9 @@ namespace ECS
         Container for optional data type
         Stores data linearly as raw bytes, converts only on access
         When a field is deleted, moved last field to it instead of moving entire array
+        TODO: might make it just an interface with an actual object knowing about type
+        Virtual calls are a bit faster than calls to lambdas through interface plus it will allow some optimization
+        because currently container does not know its type and registry / archetype often need to iterate over all components
     */
     class UntypeContainer
     {
@@ -125,10 +128,10 @@ namespace ECS
         template<typename T>
         void realloc(std::size_t newCapacity_)
         {
-            T* newData = new T[newCapacity_];
             T* oldData = static_cast<T*>(m_data);
             if (m_data)
             {
+                T* newData = new T[newCapacity_];
                 auto maxid = std::min(newCapacity_ - 1, m_size - 1);
                 for (int i = 0; i <= maxid; ++i)
                     newData[i] = std::move(oldData[i]);
