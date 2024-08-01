@@ -60,7 +60,7 @@ namespace TypeManip
         }
     };
 
-    int TypeHash::LastHash = 0;
+    inline int TypeHash::LastHash = 0;
 
     // Utility functions to dump type data
 

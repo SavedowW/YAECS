@@ -2,9 +2,45 @@
 #define ARCHETYPE_H_
 #include "UntypeContainer.h"
 #include <bitset>
+#include <iostream>
 
 namespace ECS
 {
+    /*
+        Dynamic view for an entity in archetype
+        Only used for immediate access to its components, mostly needed for state machine
+        Is outdated after most operations with even unrelated entities or components
+    */
+    class EntityView
+    {
+    public:
+        template<typename TReg, typename T>
+        T &get()
+        {
+            return *static_cast<T*>(m_components[TReg::template Get<T>()]);
+        }
+
+        template<typename T>
+        T &get(std::size_t comp_)
+        {
+            return *static_cast<T*>(m_components[comp_]);
+        }
+
+        template<typename TReg, typename T>
+        bool contains() const
+        {
+            return m_components.contains(TReg::template Get<T>());
+        }
+
+        void add(int id_, void* comp_)
+        {
+            m_components[id_] = comp_;
+        }
+
+    private:
+        std::unordered_map<int, void*> m_components;
+    };
+
     /*
         Archetype class
         A container for a number of component containers
@@ -58,6 +94,11 @@ namespace ECS
             return (m_map.contains(TReg::template Get<Ts>()) && ...);
         }
 
+        bool containsComponent(int comp_) const
+        {
+            return (m_map.contains(comp_));
+        }
+
         inline size_t size() const
         {
             return m_map.begin()->second.size();
@@ -89,7 +130,7 @@ namespace ECS
             return size() - 1;
         }
 
-        template<typename... Ts> requires TypeManip::TemplateExists<Ts...>
+        template<typename... Ts>
         void emplaceComponents(std::size_t id_, Ts&&... comps_)
         {
             ([&]

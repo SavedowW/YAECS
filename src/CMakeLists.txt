@@ -6,6 +6,7 @@ project(${PROJECT_NAME})
 
 set(SRC_FILES 
 main.cpp
+StateMachine.cpp
 )
 
 set(INCLUDE_DIRS

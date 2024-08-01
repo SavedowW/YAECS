@@ -1,3 +1,5 @@
+#ifndef EXAMPLE_COMPONENTS_H_
+#define EXAMPLE_COMPONENTS_H_
 #include "Vector2.h"
 
 /*
@@ -83,33 +85,34 @@ struct ComponentMobNavigation
 };
 
 
-std::ostream &operator<<(std::ostream &os_, const ComponentTransform &comp_)
+inline std::ostream &operator<<(std::ostream &os_, const ComponentTransform &comp_)
 {
     os_ << "Transform ( pos: {" << comp_.m_pos << "}, size: {" << comp_.m_size << "} )";
     return os_;
 }
 
-std::ostream &operator<<(std::ostream &os_, const ComponentPhysical &comp_)
+inline std::ostream &operator<<(std::ostream &os_, const ComponentPhysical &comp_)
 {
     os_ << "Physical ( collider: " << comp_.m_cld << ", gravity: {" << comp_.m_gravity << "}, velocity: {" << comp_.m_velocity << "} )";
     return os_;
 }
 
-std::ostream &operator<<(std::ostream &os_, const ComponentCharacter &comp_)
+inline std::ostream &operator<<(std::ostream &os_, const ComponentCharacter &comp_)
 {
     os_ << "Character ( name: " << comp_.m_name << ", level: {" << comp_.m_level << "} )";
     return os_;
 }
 
-std::ostream &operator<<(std::ostream &os_, const ComponentPlayerInput &comp_)
+inline std::ostream &operator<<(std::ostream &os_, const ComponentPlayerInput &comp_)
 {
     os_ << std::boolalpha << "Inputs ( Left: " << comp_.m_inL << ", Right: " << comp_.m_inR << " )";
     return os_;
 }
 
-std::ostream &operator<<(std::ostream &os_, const ComponentMobNavigation &comp_)
+inline std::ostream &operator<<(std::ostream &os_, const ComponentMobNavigation &comp_)
 {
     os_ << std::boolalpha << "MobNav ( dir: " << comp_.dir << ", frames left: " << comp_.framesLeft << " )";
     return os_;
 }
 
+#endif

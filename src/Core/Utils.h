@@ -131,22 +131,22 @@ namespace utils
         return rawName;
 	}
 
-    std::string getIntend(int intend_)
+    inline std::string getIntend(int intend_)
     {
         return std::string(intend_, ' ');
     }
 
-    std::string replaceAll(std::string src_, const std::string &replacable_, const std::string &toReplace_)
+    inline std::string replaceAll(std::string src_, const std::string &replacable_, const std::string &toReplace_)
     {
         return std::regex_replace(src_, std::regex(replacable_), toReplace_);
     }
 
-    std::string wrap(const std::string &src_)
+    inline std::string wrap(const std::string &src_)
     {
         return "\"" + src_ + "\"";
     }
 
-    std::string normalizeType(const std::string &reg_)
+    inline std::string normalizeType(const std::string &reg_)
     {
 
         auto res = replaceAll(reg_, "struct ", "");
@@ -168,7 +168,7 @@ namespace utils
         return res;
     }
 
-    void dumpType(std::ostream &os_, const std::string &type_)
+    inline void dumpType(std::ostream &os_, const std::string &type_)
     {
         auto res = replaceAll(type_, " ", "");
         int intendLevel = 0;

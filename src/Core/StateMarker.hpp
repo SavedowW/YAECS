@@ -11,10 +11,10 @@ constexpr inline int STATE_HOLDER_SIZE = sizeof(StateHolder_t) * 8;
 // Hold count_ bool values set to false by default
 // For some reason works notably faster than just a regular std::vector<bool> with compiler optimization
 // which should do the same thing under the hood
-template<typename ENUM_TYPE>
 class StateMarker
 {
 public:
+    template<typename ENUM_TYPE>
     inline StateMarker(ENUM_TYPE lastElemP1_, const std::vector<ENUM_TYPE> &trueFields_)  :
         m_stateMarks(static_cast<int>(lastElemP1_) / STATE_HOLDER_SIZE + 1 , 0)
     {
@@ -27,7 +27,8 @@ public:
         }
     }
 
-    void toggleMark(ENUM_TYPE id_)
+    template<typename ENUM_TYPE>
+    inline void toggleMark(ENUM_TYPE id_)
     {
         auto casted = static_cast<int>(id_);
         auto arrid = casted / STATE_HOLDER_SIZE;
@@ -35,6 +36,7 @@ public:
         m_stateMarks[arrid] = m_stateMarks[arrid] ^ ((StateHolder_t)1 << bitid);
     }
 
+    template<typename ENUM_TYPE>
     inline bool operator[](const ENUM_TYPE &id_) const
     {
         auto casted = static_cast<int>(id_);
