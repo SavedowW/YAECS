@@ -54,10 +54,37 @@ namespace ECS
 
 
     template<typename TReg>
-    struct Query
+    class Query
     {
-        Registry<TReg> &m_reg;
-        std::vector<size_t> m_archIds;
+    public:
+        Query(Registry<TReg> &reg_, const std::bitset<TReg::MaxID> &mask_, size_t lastArchSize_) :
+            m_reg(reg_),
+            m_mask(mask_),
+            m_lastArchSize(lastArchSize_)
+        {
+        }
+
+        void update()
+        {
+            auto newsz = m_reg.size();
+            if (newsz > m_lastArchSize)
+            {
+                std::cout << "View " << m_mask << " is outdated, " << m_lastArchSize << " / " << newsz << std::endl;
+                for (;m_lastArchSize < newsz; ++m_lastArchSize) 
+                {
+                    auto archmask = m_reg[m_lastArchSize].getMask();
+                    if ((m_mask & archmask) == m_mask)
+                    {
+                        std::cout << "Found new viable archetype " << archmask << std::endl;
+                        m_archIds.push_back(m_lastArchSize);
+                    }
+                }
+            }
+            else
+            {
+                std::cout << "View " << m_mask << " is up to date" << std::endl;
+            }
+        }
 
         // Iterates forward, from first archetype to last, from first entity to last, passes head, index and required components
         template<typename... Comps, typename F, typename... Head> 
@@ -126,6 +153,13 @@ namespace ECS
                 }
             }
         }
+
+        std::vector<size_t> m_archIds;
+
+    private:
+        Registry<TReg> &m_reg;
+        std::bitset<TReg::MaxID> m_mask;
+        size_t m_lastArchSize;
     };
 
     template<typename TReg>
@@ -139,6 +173,11 @@ namespace ECS
             EntityIndex newent {archid, m_archetypes[archid].addEntity()};
             m_archetypes[archid].emplaceComponents(newent.m_entityId, std::forward<Emplaced>(comps_)...);
             return newent;
+        }
+
+        size_t size() const
+        {
+            return m_archetypes.size();
         }
 
         // Components are expected to be unique
@@ -209,7 +248,8 @@ namespace ECS
         template<typename... Comps>
         Query<TReg> makeQuery()
         {
-            Query<TReg> res(*this);
+            constexpr std::bitset<TReg::MaxID> bset(((1ull << (TReg::template Get<Comps>() - 1)) | ...));
+            Query<TReg> res(*this, bset, m_archetypes.size());
 
             for (size_t archId = 0; archId < m_archetypes.size(); ++archId)
             {

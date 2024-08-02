@@ -35,7 +35,7 @@ bool StateMachine::update(ECS::EntityView &owner_, uint32_t currentFrame_)
 bool StateMachine::attemptTransition(ECS::EntityView &owner_)
 {
     auto currentStateId = m_currentState->m_stateId;
-    auto &trans = owner_.get<ComponentTransform>(0);
+    auto &trans = owner_.get<ComponentTransform>(1);
     for (auto &el : m_states)
     {
         if (!el->transitionableFrom(currentStateId))
@@ -85,7 +85,7 @@ bool GenericState::update(ECS::EntityView &owner_, uint32_t currentFrame_)
 
 ORIENTATION GenericState::isPossible(ECS::EntityView &owner_) const
 {
-    return owner_.get<ComponentTransform>(0).m_orientation;
+    return owner_.get<ComponentTransform>(1).m_orientation;
 }
 
 std::string GenericState::getName(uint32_t framesInState_) const

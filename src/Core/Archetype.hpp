@@ -176,9 +176,20 @@ namespace ECS
         }
 
         template<typename... Comps>
-        std::tuple<Comps&...> makeView(size_t ent_)
+        EntityView makeView(size_t ent_)
         {
-            return std::tie<Comps&...>(m_map.at(TReg::template Get<Comps>()).template get<Comps>(ent_)...);
+            EntityView view;
+            ([&]
+            {
+                //std::cout << TReg::template Get<Comps>() << std::endl;
+                if (m_map.contains(TReg::template Get<Comps>()))
+                {
+                    //std::cout << "Contained\n";
+                    view.add(TReg::template Get<Comps>(), &(m_map[TReg::template Get<Comps>()].get<Comps>(ent_)));
+                }
+            } (), ...);
+
+            return view;
         }
         
         std::bitset<TReg::MaxID> getMask() const
